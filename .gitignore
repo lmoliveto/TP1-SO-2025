@@ -1,0 +1,8 @@
+# gcc
+*.dSYM
+*.o
+
+.bash_history
+
+# macOS
+.DS_Store
