@@ -1,5 +1,5 @@
 # Validates the existance of the TPE-ARQ container, starts it up & compiles the project
-CONTAINER_NAME="TPE-SO-2025-g2"
+CONTAINER_NAME="TPE-SO-2025-g02"
 
 # COLORS
 RED='\033[0;31m'
