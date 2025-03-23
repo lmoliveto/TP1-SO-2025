@@ -1,9 +1,9 @@
 #include <shm.h>
 
-static void * createSHM(const char * name, int size, int openFlag, int mode, int prot){
+static void * createSHM(const char * name, int size, int open_flag, int mode, int prot){
     int fd;
 
-    fd = shm_open(name, openFlag, mode);
+    fd = shm_open(name, open_flag, mode);
     if(fd == -1){
             perror("shm_open");
             exit(EXIT_FAILURE);

@@ -8,70 +8,61 @@
 #include <unistd.h>     // fork, close
 #include <semaphore.h>  // sem_t, sem_wait, sem_post, sem_open, sem_close
 #include <stdbool.h>    // bool
+#include <time.h>       // time
+
+
+// <----------------------------------------------------------------------- DEFINES ----------------------------------------------------------------------->
+
+#define DEFAULT_WIDTH 10
+#define DEFAULT_HEIGHT 10
+#define DEFAULT_DELAY 200
+#define DEFAULT_TIMEOUT 10
+#define DEFAULT_VIEW NULL
+
+#define MIN_WIDTH 10
+#define MIN_HEIGHT 10
+#define MIN_PLAYERS 1
+#define MAX_PLAYERS 9
+
 
 // <----------------------------------------------------------------------- STRUCTS ----------------------------------------------------------------------->
 
 typedef struct {
     char name[16]; // Nombre del jugador
     unsigned int score; // Puntaje
-    unsigned int invalidMoveCount; // Cantidad de solicitudes de movimientos inválidos realizados
-    unsigned int validMoveCount; // Cantidad de solicitudes de movimientos válidas realizadas
-    unsigned short xPos, yPos; // Coordenadas x e y en el tablero
+    unsigned int invalid_move_count; // Cantidad de solicitudes de movimientos inválidos realizados
+    unsigned int valid_move_count; // Cantidad de solicitudes de movimientos válidas realizadas
+    unsigned short x_pos, y_pos; // Coordenadas x e y en el tablero
     pid_t pid; // Identificador de proceso
-    bool hasValidMoves; // Indica si el jugador tiene movimientos válidos disponibles
+    bool has_valid_moves; // Indica si el jugador tiene movimientos válidos disponibles
 } Player;
 
 typedef struct {
     unsigned short width; // Ancho del tablero
     unsigned short height; // Alto del tablero
-    unsigned int playerCount; // Cantidad de jugadores
+    unsigned int player_count; // Cantidad de jugadores
     Player players[9]; // Lista de jugadores
     bool finished; // Indica si el juego se ha terminado
     int cells[]; // Puntero al comienzo del tablero. fila-0, fila-1, ..., fila-n-1
 } Board;
 
 typedef struct {
-    sem_t hasChanges; // Se usa para indicarle a la vista que hay cambios por imprimir
-    sem_t printDone; // Se usa para indicarle al master que la vista terminó de imprimir
-    sem_t playerDone; // Mutex para evitar inanición del master al acceder al estado
-    sem_t gameState; // Mutex para el estado del juego
+    sem_t has_changes; // Se usa para indicarle a la vista que hay cambios por imprimir
+    sem_t print_done; // Se usa para indicarle al master que la vista terminó de imprimir
+    sem_t player_done; // Mutex para evitar inanición del master al acceder al estado
+    sem_t game_state; // Mutex para el estado del juego
     sem_t variable; // Mutex para la siguiente variable
     unsigned int readers; // Cantidad de jugadores leyendo el estado
 } Semaphores;
 
-
-// <----------------------------------------------------------------------- SHM ----------------------------------------------------------------------->
-
-static void * createSHM(const char * name, int size, int openFlag, int mode, int prot){
-    int fd;
-
-    fd = shm_open(name, openFlag, mode);
-    if(fd == -1){
-            perror("shm_open");
-            exit(EXIT_FAILURE);
-    }
-
-    if(-1 == ftruncate(fd, size)){
-            perror("ftruncate");
-            exit(EXIT_FAILURE);
-    }
-
-    void * p = mmap(NULL, size, prot, MAP_SHARED, fd, 0);
-    if(p == MAP_FAILED){
-            perror("mmap");
-            exit(EXIT_FAILURE);
-    }
-
-    return p;
-}
+typedef struct {
+    Board * game_state;
+    unsigned int delay; // Milisegundos que espera el máster cada vez que se imprime el estado
+    unsigned int timeout; // Segundos para recibir solicitudes de movimientos válidos
+    time_t seed; // Semilla utilizada para la generación del tablero
+    char * view; // Ruta del binario de la vista
+    char * players[MAX_PLAYERS]; // Ruta/s de los binarios de los jugadores
+} Settings;
 
 
-int main(){
-
-    // create SHMs
-    Board * game_state = (Board *) createSHM("/game_state", sizeof(Board), O_RDONLY | O_CREAT, 0644, PROT_READ);
-    Semaphores * game_sync = (Semaphores *) createSHM("/game_sync", sizeof(Semaphores), O_RDWR | O_CREAT, 0666, PROT_READ | PROT_WRITE);
-
-    return 0;
-}
 #endif

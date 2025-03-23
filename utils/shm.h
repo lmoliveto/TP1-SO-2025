@@ -6,6 +6,6 @@
 #include <stdio.h>     
 
 
-static void * createSHM(const char * name, int size, int openFlag, int mode, int prot);
+static void * createSHM(const char * name, int size, int open_flag, int mode, int prot);
 
 #endif
