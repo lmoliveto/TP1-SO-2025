@@ -1,4 +1,6 @@
-#include <stdio.h>      // printf, perror
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
+
 #include <stdlib.h>     // exit, EXIT_FAILURE
 #include <fcntl.h>      // O_CREAT, O_RDWR
 #include <sys/mman.h>   // shm_open, ftruncate, mmap, MAP_SHARED, PROT_READ, PROT_WRITE
@@ -6,7 +8,6 @@
 #include <unistd.h>     // fork, close
 #include <semaphore.h>  // sem_t, sem_wait, sem_post, sem_open, sem_close
 #include <stdbool.h>    // bool
-
 
 // <----------------------------------------------------------------------- STRUCTS ----------------------------------------------------------------------->
 
@@ -73,3 +74,4 @@ int main(){
 
     return 0;
 }
+#endif
