@@ -7,7 +7,6 @@
 #include <semaphore.h>  // sem_t, sem_wait, sem_post, sem_open, sem_close
 #include <stdbool.h>    // bool
 
-
 // <----------------------------------------------------------------------- STRUCTS ----------------------------------------------------------------------->
 
 typedef struct {

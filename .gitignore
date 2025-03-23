@@ -6,3 +6,11 @@
 
 # macOS
 .DS_Store
+
+# vscode
+.vscode
+.vscode-server
+.ssh
+.dotnet
+.cache
+.gitconfig
