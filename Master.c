@@ -67,6 +67,9 @@ static void * createSHM(const char * name, int size, int openFlag, int mode, int
 
 int main(){
 
-    
+    // create SHMs
+    Board * game_state = (Board *) createSHM("/game_state", sizeof(Board), O_RDONLY | O_CREAT, 0644, PROT_READ);
+    Semaphores * game_sync = (Semaphores *) createSHM("/game_sync", sizeof(Semaphores), O_RDWR | O_CREAT, 0666, PROT_READ | PROT_WRITE);
 
+    return 0;
 }
