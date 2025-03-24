@@ -1,11 +1,13 @@
 # gcc
-*.dSYM
-*.o
 *
 !*.*
 !*/
+*.dSYM
+*.o
 
+# bash
 .bash_history
+.lesshst 
 
 # macOS
 .DS_Store
