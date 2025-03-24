@@ -3,7 +3,7 @@
 int main (int argc, char* argv[]) {
 
     char buff[1];
-    buff[0] = '1';
+    buff[0] = '2';
 
     int written = write(STDOUT_FILENO, buff, 1);
 

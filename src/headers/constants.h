@@ -1,6 +1,7 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
+#include <stdio.h>
 #include <stdlib.h>     // exit, EXIT_FAILURE
 #include <fcntl.h>      // O_CREAT, O_RDWR
 #include <sys/mman.h>   // shm_open, ftruncate, mmap, MAP_SHARED, PROT_READ, PROT_WRITE
@@ -10,6 +11,8 @@
 #include <stdbool.h>    // bool
 #include <time.h>       // time
 #include <string.h>     // strcmp
+#include <sys/select.h>
+#include <sys/wait.h>
 
 
 // <----------------------------------------------------------------------- DEFINES ----------------------------------------------------------------------->
