@@ -16,6 +16,7 @@ static void assign_default_values(Settings * settings){
 }
 
 static void parse_arguments(int argc, char *argv[], Settings * settings){
+    bool no_players = true;
     for (int i = 1; i < argc; i++){
         if (strcmp(argv[i], "-w") == 0 && i + 1 < argc){
             i++;
@@ -57,27 +58,38 @@ static void parse_arguments(int argc, char *argv[], Settings * settings){
             settings->view = argv[i];
         }
 
+        //! asumo que este es el último argumento
         else if(strcmp(argv[i], "-p") == 0){
+            no_players = false;
             i++;
-            //! asumo que este es el último argumento
             int j;
             for(j = 0; j < MAX_PLAYERS && i < argc; j++, i++){
                 settings->players[j] = argv[i];
             }
-            if((j + 1) == MAX_PLAYERS && i < argc){
+            if(j >= MAX_PLAYERS && i < argc){
+                errno = EINVAL;
                 perror("too many players");
                 exit(EXIT_FAILURE);
             }
             if(j < MIN_PLAYERS){
+                errno = EINVAL;
                 perror("too few players");
                 exit(EXIT_FAILURE);
             }
+            settings->game_state->player_count = j;
         } 
 
         else{
+            errno = EINVAL;
             perror("invalid argument");
             exit(EXIT_FAILURE);
         }
+    }
+
+    if(no_players){
+        errno = EINVAL;
+        perror("missing -p");
+        exit(EXIT_FAILURE);
     }
 }
 
