@@ -9,6 +9,7 @@
 #include <semaphore.h>  // sem_t, sem_wait, sem_post, sem_open, sem_close
 #include <stdbool.h>    // bool
 #include <time.h>       // time
+#include <string.h>     // strcmp
 
 
 // <----------------------------------------------------------------------- DEFINES ----------------------------------------------------------------------->

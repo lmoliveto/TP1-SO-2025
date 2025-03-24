@@ -82,8 +82,8 @@ static void parse_arguments(int argc, char *argv[], Settings * settings){
 int main(int argc, char *argv[]){
 
     // create SHMs
-    Board * game_state = (Board *) createSHM("/game_state", sizeof(Board), O_RDONLY | O_CREAT, 0644, PROT_READ);
-    Semaphores * game_sync = (Semaphores *) createSHM("/game_sync", sizeof(Semaphores), O_RDWR | O_CREAT, 0666, PROT_READ | PROT_WRITE);
+    Board * game_state = (Board *) accessSHM("/game_state", sizeof(Board), O_RDWR | O_CREAT, 0644, PROT_READ | PROT_WRITE);
+    Semaphores * game_sync = (Semaphores *) accessSHM("/game_sync", sizeof(Semaphores), O_RDWR | O_CREAT, 0666, PROT_READ | PROT_WRITE);
 
     Settings settings;
     settings.game_state = game_state;
