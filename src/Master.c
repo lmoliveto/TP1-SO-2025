@@ -16,6 +16,7 @@ static void assign_default_values(Settings * settings){
 }
 
 static void parse_arguments(int argc, char *argv[], Settings * settings){
+    bool no_players = true;
     for (int i = 1; i < argc; i++){
         if (strcmp(argv[i], "-w") == 0 && i + 1 < argc){
             i++;
@@ -57,27 +58,38 @@ static void parse_arguments(int argc, char *argv[], Settings * settings){
             settings->view = argv[i];
         }
 
+        //! asumo que este es el último argumento
         else if(strcmp(argv[i], "-p") == 0){
+            no_players = false;
             i++;
-            //! asumo que este es el último argumento
             int j;
             for(j = 0; j < MAX_PLAYERS && i < argc; j++, i++){
                 settings->players[j] = argv[i];
             }
-            if((j + 1) == MAX_PLAYERS && i < argc){
+            if(j >= MAX_PLAYERS && i < argc){
+                errno = EINVAL;
                 perror("too many players");
                 exit(EXIT_FAILURE);
             }
             if(j < MIN_PLAYERS){
+                errno = EINVAL;
                 perror("too few players");
                 exit(EXIT_FAILURE);
             }
+            settings->game_state->player_count = j;
         } 
 
         else{
+            errno = EINVAL;
             perror("invalid argument");
             exit(EXIT_FAILURE);
         }
+    }
+
+    if(no_players){
+        errno = EINVAL;
+        perror("missing -p");
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -95,7 +107,6 @@ int main(int argc, char *argv[]) {
 
     int pipe_fd1[2];
     pipe(pipe_fd1);
-    
 
     pid_t pid1 = fork();
 
@@ -106,8 +117,6 @@ int main(int argc, char *argv[]) {
         close(pipe_fd1[0]);
         close(pipe_fd1[1]);
 
-        
-
         char * args[] = {"./p1", NULL};
 
         execve(args[0], args, NULL);
@@ -116,7 +125,6 @@ int main(int argc, char *argv[]) {
     
     }
 
-    
     close(pipe_fd1[1]);
 
     int pipe_fd2[2];
@@ -124,7 +132,6 @@ int main(int argc, char *argv[]) {
 
     pid_t pid2 = fork();
     
-
     if ( pid2 == 0) {
         close(STDOUT_FILENO);
         dup(pipe_fd2[1]); //aca se asigna al menor fd -> stdout
@@ -139,50 +146,55 @@ int main(int argc, char *argv[]) {
         perror("execve");
         exit(EXIT_FAILURE);
     } 
-    
-   
-    
+
     close(pipe_fd2[1]);
 
     fd_set readfds;
     FD_ZERO(&readfds);
-    FD_SET(pipe_fd1[0], &readfds);
-    FD_SET(pipe_fd2[0], &readfds);
+    
+    int max_fd = MAX(pipe_fd1[0], pipe_fd2[0]);
+    char buff[2];
+    int remaining_fds = 2;
+    
+    while (remaining_fds > 0) {
+        FD_ZERO(&readfds);
+        FD_SET(pipe_fd1[0], &readfds);
+        FD_SET(pipe_fd2[0], &readfds);
+    
+        struct timeval timeout;
+        timeout.tv_sec = 5;
+        timeout.tv_usec = 0;
 
-    struct timeval timeout;
-    timeout.tv_sec = 5;
-    timeout.tv_usec = 0;
+        int total = select(max_fd + 1, &readfds, NULL, NULL, &timeout);
 
-    int total = select(MAX(pipe_fd1[0], pipe_fd2[0]) + 1, &readfds, NULL, NULL, &timeout);
-
-    if (-1 == total) {
-        perror("select");
-        exit(EXIT_FAILURE);
-    }
-    if ( 0 == total) {
-        printf("timeout\n");
-        exit(EXIT_FAILURE);
-    }
-
-    char buff[10];
-    if ( FD_ISSET(pipe_fd1[0], &readfds) ) {
-        int total_read = read(pipe_fd1[0], buff, sizeof(buff));
-        if (total_read != 1) {
-            printf("read");
+        if (-1 == total) {
+            perror("select");
             exit(EXIT_FAILURE);
         }
-        buff[1] = 0;
-        printf("p1 wrote:\n\"%s\"\n", buff);
-    }
-
-    if ( FD_ISSET(pipe_fd2[0], &readfds) ) {
-        int total_read = read(pipe_fd2[0], buff, sizeof(buff));
-        if (total_read != 1) {
-            printf("read");
+        if ( 0 == total) {
+            printf("timeout\n");
             exit(EXIT_FAILURE);
         }
-        buff[1] = 0;
-        printf("p2 wrote:\n\"%s\"\n", buff);
+
+        if ( FD_ISSET(pipe_fd1[0], &readfds) ) {
+            int total_read = read(pipe_fd1[0], buff, sizeof(buff));
+            if (total_read != 1) {
+                printf("read");
+                exit(EXIT_FAILURE);
+            }
+            printf("p1 wrote:\n\"%s\"\n", buff);
+            remaining_fds--;
+        }
+
+        if ( FD_ISSET(pipe_fd2[0], &readfds) ) {
+            int total_read = read(pipe_fd2[0], buff, sizeof(buff));
+            if (total_read != 1) {
+                printf("read");
+                exit(EXIT_FAILURE);
+            }
+            printf("p2 wrote:\n\"%s\"\n", buff);
+            remaining_fds--;
+        } 
     }
 
     close(pipe_fd1[0]);
