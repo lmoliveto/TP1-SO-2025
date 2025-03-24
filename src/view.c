@@ -51,9 +51,10 @@ int main (void) {
         sem_wait(&game_sync->has_changes);
         sem_wait(&game_sync->game_state);
         finished = game_board->finished;
-        sem_post(&game_sync->game_state);
-
+        
         print_board(game_board);
+        
+        sem_post(&game_sync->game_state);
         sem_post(&game_sync->print_done);
     } while (!finished);
 
