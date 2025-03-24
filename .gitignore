@@ -3,6 +3,7 @@
 *.o
 *
 !*.*
+!*/
 
 .bash_history
 
