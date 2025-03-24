@@ -1,5 +1,5 @@
-#include "../utils/shm.h"
-#include "../utils/constants.h"
+#include "shm.h"
+#include "constants.h"
 
 static void assign_default_values(Settings * settings){
     unsigned int default_seed = time(NULL); //todo no se si dejarlo como variable...

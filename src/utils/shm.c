@@ -1,4 +1,4 @@
-#include "./shm.h"
+#include "shm.h"
 
 void * accessSHM(const char * name, size_t size, int open_flag, int mode, int prot){
     int fd;
