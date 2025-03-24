@@ -13,6 +13,8 @@ static void assign_default_values(Settings * settings){
     settings->timeout = DEFAULT_TIMEOUT;
     settings->seed = default_seed;
     settings->view = NULL;
+
+    settings->game_state->finished = 0;
 }
 
 static void parse_arguments(int argc, char *argv[], Settings * settings){
@@ -93,6 +95,20 @@ static void parse_arguments(int argc, char *argv[], Settings * settings){
     }
 }
 
+static void check_finished(Settings * settings){
+    for(int i = 0; i < settings->game_state->player_count && !settings->game_state->finished; i++){
+        if(settings->game_state->players[i].has_valid_moves){
+            settings->game_state->finished = 1;
+        }
+    }
+}
+
+//todo
+static int get_max(){
+    return 1;
+}
+
+
 int main(int argc, char *argv[]) {
     // create SHMs
     Board * game_state = (Board *) accessSHM("/game_state", sizeof(Board),  O_RDWR | O_CREAT, 0644, PROT_READ | PROT_WRITE);
@@ -101,105 +117,102 @@ int main(int argc, char *argv[]) {
     Settings settings;
     settings.game_state = game_state;
 
+    srand(settings.seed);
+
     assign_default_values(&settings);
     parse_arguments(argc, argv, &settings);
 
-
-    int pipe_fd1[2];
-    pipe(pipe_fd1);
-
-    pid_t pid1 = fork();
-
-    if ( pid1 == 0) {
-        close(STDOUT_FILENO);
-        dup(pipe_fd1[1]); //aca se asigna al menor fd -> stdout
-
-        close(pipe_fd1[0]);
-        close(pipe_fd1[1]);
-
-        char * args[] = {"./p1", NULL};
-
-        execve(args[0], args, NULL);
-        perror("execve");
-        exit(EXIT_FAILURE);
-    
+    for(int i = 0; i < 2; i++){
+        printf("%s\n", settings.players[i]);
     }
 
-    close(pipe_fd1[1]);
 
-    int pipe_fd2[2];
-    pipe(pipe_fd2);
+    //<---------------------------------------- COMMUNICATION ---------------------------------------->
 
-    pid_t pid2 = fork();
+    int pipes[MAX_PLAYERS + 1][2];
+    pid_t pids[MAX_PLAYERS + 1];
+
+    //<------------------------------- VIEW ------------------------------->
+
+
+    //<------------------------------- PLAYERS ------------------------------->
+
+    for(int i = 1; i <= settings.game_state->player_count; i++){
+        pipe(pipes[i]);
+        pids[i] = fork();
+
+        if(pids[i] == 0){
+            close(STDOUT_FILENO);
+            dup(pipes[i][1]); //aca se asigna al menor fd -> stdout
     
-    if ( pid2 == 0) {
-        close(STDOUT_FILENO);
-        dup(pipe_fd2[1]); //aca se asigna al menor fd -> stdout
+            close(pipes[i][0]);
+            close(pipes[i][1]);
+    
+            char *args[] = {settings.players[i - 1], NULL}; //todo chequear nombre de binario
+    
+            execve(args[0], args, NULL);
+            perror("execve");
+            exit(EXIT_FAILURE);
+        }
 
-        close(pipe_fd2[0]);
-        close(pipe_fd2[1]);
+        close(pipes[i][1]);
+    }
 
-        
-        char *args[] = {"./p2", NULL};
 
-        execve(args[0], args, NULL);
-        perror("execve");
-        exit(EXIT_FAILURE);
-    } 
-
-    close(pipe_fd2[1]);
 
     fd_set readfds;
     FD_ZERO(&readfds);
     
-    int max_fd = MAX(pipe_fd1[0], pipe_fd2[0]);
+    // int max_fd = MAX(pipe_fd1[0], pipe_fd2[0]);
+    int max_fd = get_max();
+    int total_fds_found;
     char buff[2];
-    int remaining_fds = 2;
+    int first_p = (rand() % (settings.game_state->player_count)) + 1;
+
+    struct timeval timeout;
+    timeout.tv_sec = 5;
+    timeout.tv_usec = 0;
     
-    while (remaining_fds > 0) {
+    while(!settings.game_state->finished){
+        
         FD_ZERO(&readfds);
-        FD_SET(pipe_fd1[0], &readfds);
-        FD_SET(pipe_fd2[0], &readfds);
+
+        for(int i = 1; i <= settings.game_state->player_count; i++){
+            FD_SET(pipes[i][0], &readfds);
+        }
     
-        struct timeval timeout;
-        timeout.tv_sec = 5;
-        timeout.tv_usec = 0;
+        total_fds_found = select(max_fd + 1, &readfds, NULL, NULL, &timeout);
 
-        int total = select(max_fd + 1, &readfds, NULL, NULL, &timeout);
-
-        if (-1 == total) {
+        if (-1 == total_fds_found) {
             perror("select");
             exit(EXIT_FAILURE);
         }
-        if ( 0 == total) {
+        if ( 0 == total_fds_found) {
             printf("timeout\n");
             exit(EXIT_FAILURE);
         }
 
-        if ( FD_ISSET(pipe_fd1[0], &readfds) ) {
-            int total_read = read(pipe_fd1[0], buff, sizeof(buff));
-            if (total_read != 1) {
-                printf("read");
-                exit(EXIT_FAILURE);
+        for(int i = first_p, j = 0; j < settings.game_state->player_count; j++){
+            if(FD_ISSET(pipes[i][0], &readfds)){
+                int total_read = read(pipes[i][0], buff, sizeof(buff));
+                if (total_read != 1) {
+                    printf("read");
+                    exit(EXIT_FAILURE);
+                }
+                printf("p%d wrote:\n\"%s\"\n", i, buff);
             }
-            printf("p1 wrote:\n\"%s\"\n", buff);
-            remaining_fds--;
+
+            i = (i == settings.game_state->player_count) ? 1 : (i + 1);
         }
 
-        if ( FD_ISSET(pipe_fd2[0], &readfds) ) {
-            int total_read = read(pipe_fd2[0], buff, sizeof(buff));
-            if (total_read != 1) {
-                printf("read");
-                exit(EXIT_FAILURE);
-            }
-            printf("p2 wrote:\n\"%s\"\n", buff);
-            remaining_fds--;
-        } 
+        check_finished(&settings);
     }
 
-    close(pipe_fd1[0]);
-    close(pipe_fd2[0]);
+    for(int i = 1; i <= settings.game_state->player_count; i++){
+        close(pipes[i][0]);
+    }
 
     waitpid(-1, NULL, 0);
+
     return 0;
 }
