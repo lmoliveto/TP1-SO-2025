@@ -26,20 +26,7 @@ static const char * colors[] = {
     ANSI_HIGH_INTENSITY_BLUE
 };
 
-void print_board(Board * game_board) {
-    printf(ANSI_CLEAR_SCREEN);
-    for (int y = 0; y < game_board->height; y++) {
-        for (int x = 0; x < game_board->width; x++) {
-            int cell_value = game_board->cells[x + y * game_board->width];
-            if (cell_value > 0) {
-                printf("%d   ", cell_value);
-            } else {
-                printf("%s%c%s   ", colors[-cell_value], '#', ANSI_COLOR_RESET);
-            }
-        }
-        printf("\n\n");
-    }
-}
+static void print_board(Board * game_board);
 
 int main (void) {
     Board * game_board = (Board *) accessSHM("/game_state", sizeof(Board), O_RDONLY, 0, PROT_READ);
@@ -59,4 +46,19 @@ int main (void) {
     } while (!finished);
 
     return 0;
+}
+
+static void print_board(Board * game_board){
+    printf(ANSI_CLEAR_SCREEN);
+    for (int y = 0; y < game_board->height; y++) {
+        for (int x = 0; x < game_board->width; x++) {
+            int cell_value = game_board->cells[x + y * game_board->width];
+            if (cell_value > 0) {
+                printf("%d   ", cell_value);
+            } else {
+                printf("%s%c%s   ", colors[-cell_value], '#', ANSI_COLOR_RESET);
+            }
+        }
+        printf("\n\n");
+    }
 }
