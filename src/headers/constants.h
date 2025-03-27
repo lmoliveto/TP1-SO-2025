@@ -55,7 +55,7 @@ typedef struct {
     unsigned int valid_move_count; // Cantidad de solicitudes de movimientos válidas realizadas
     unsigned short x_pos, y_pos; // Coordenadas x e y en el tablero
     pid_t pid; // Identificador de proceso
-    bool has_valid_moves; // Indica si el jugador tiene movimientos válidos disponibles
+    bool is_blocked; // Indica si el jugador esta bloqueado
 } Player;
 
 typedef struct {
@@ -82,7 +82,6 @@ typedef struct {
     unsigned int timeout; // Segundos para recibir solicitudes de movimientos válidos
     time_t seed; // Semilla utilizada para la generación del tablero
     char * view; // Ruta del binario de la vista
-    char * players[MAX_PLAYERS]; // Ruta/s de los binarios de los jugadores
 } Settings;
 
 

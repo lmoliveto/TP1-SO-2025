@@ -30,7 +30,6 @@ int main(int argc, char * argv[]) {
     //<---------------------------------- PIPING ---------------------------------->
 
     int pipes[MAX_PLAYERS][2];
-    pid_t pids[MAX_PLAYERS];
     char width[DIM_BUFFER];
     char height[DIM_BUFFER];
     snprintf(width, sizeof(width), "%d", settings.game_state->width); //todo hace falta chequear el retorno?
@@ -38,16 +37,16 @@ int main(int argc, char * argv[]) {
 
     for(int i = 0; i < settings.game_state->player_count; i++){
         pipe(pipes[i]);
-        pids[i] = fork();
+        settings.game_state->players[i].pid = fork();
 
-        if(pids[i] == 0){
+        if(settings.game_state->players[i].pid == 0){
             close(STDOUT_FILENO);
             dup(pipes[i][W_END]);
     
             close(pipes[i][R_END]);
             close(pipes[i][W_END]);
     
-            char * args[] = { settings.players[i], width, height, NULL }; //todo chequear nombre de binario
+            char * args[] = { settings.game_state->players->name, width, height, NULL }; //todo chequear nombre de binario
     
             execve(args[0], args, NULL);
             perror("execve");
@@ -171,13 +170,23 @@ static void parse_arguments(int argc, char *argv[], Settings * settings){
             settings->view = argv[i];
         }
 
-        //! asumo que este es el último argumento
+        // asumo que este es el último argumento
         else if(strcmp(argv[i], "-p") == 0){
             no_players = false;
             i++;
-            int j;
+            int j, name_len;
             for(j = 0; j < MAX_PLAYERS && i < argc; j++, i++){
-                settings->players[j] = argv[i];
+                if((name_len = strlen(argv[i])) > 16){ //todo esto deberia ser un define pero habria que cambiar el struct de agodio
+                    errno = EINVAL;
+                    perror("player name too long");
+                    exit(EXIT_FAILURE);
+                }
+                strcpy(settings->game_state->players[j].name, argv[i]);
+                settings->game_state->players[j].name[strlen(argv[i])] = 0;
+                settings->game_state->players[j].score = 0;
+                settings->game_state->players[j].invalid_move_count = 0;
+                settings->game_state->players[j].valid_move_count = 0;
+                settings->game_state->players[j].is_blocked = 0;
             }
             if(j >= MAX_PLAYERS && i < argc){
                 errno = EINVAL;
@@ -208,7 +217,7 @@ static void parse_arguments(int argc, char *argv[], Settings * settings){
 
 static void check_finished(Settings * settings){
     for(int i = 0; i < settings->game_state->player_count && !settings->game_state->finished; i++){
-        if(settings->game_state->players[i].has_valid_moves){
+        if(!settings->game_state->players[i].is_blocked){
             settings->game_state->finished = 1;
         }
     }
