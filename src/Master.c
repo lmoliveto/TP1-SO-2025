@@ -3,7 +3,7 @@
 
 //<---------------------------------------------- PROTOTIPES ---------------------------------------------->
 
-static void assign_default_values(Settings * settings);
+static void initialize(Settings * settings, Semaphores * sem);
 static void parse_arguments(int argc, char *argv[], Settings * settings);
 static void check_finished(Settings * settings);
 static int get_max_readfd(int total, int pipes[MAX_PLAYERS][2]);
@@ -20,7 +20,7 @@ int main(int argc, char * argv[]) {
     Settings settings;
     settings.game_state = game_state;
 
-    assign_default_values(&settings);
+    initialize(&settings, game_sync);
     parse_arguments(argc, argv, &settings);
     
     srand(settings.seed);
@@ -114,7 +114,7 @@ int main(int argc, char * argv[]) {
 
 //<---------------------------------------------- FUNCTIONS ---------------------------------------------->
 
-static void assign_default_values(Settings * settings){
+static void initialize(Settings * settings, Semaphores * sem){
     unsigned int default_seed = time(NULL);
     
     settings->game_state->width = DEFAULT_WIDTH;
@@ -125,6 +125,15 @@ static void assign_default_values(Settings * settings){
     settings->view = NULL;
 
     settings->game_state->finished = 0;
+
+    if ( (-1 == sem_init(sem->has_changes, 1 , 0)) || // post-> master | wait -> view (beginning)
+         (-1 == sem_init(sem->print_done, 1 , 0)) || //wait -> master | post -> view (at the end)
+         (-1 == sem_init(sem->player_done, 1 , 1)) ||
+         (-1 == sem_init(sem ->print_done, 1 , 1)) ||
+         (-1 == sem_init(sem->variable, 1 , 1))) { 
+        perror("sem_init");
+        exit(EXIT_FAILURE);
+   }
 }
 
 static void parse_arguments(int argc, char *argv[], Settings * settings){

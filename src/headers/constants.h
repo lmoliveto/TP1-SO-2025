@@ -70,10 +70,10 @@ typedef struct {
 typedef struct {
     sem_t has_changes; // Se usa para indicarle a la vista que hay cambios por imprimir
     sem_t print_done; // Se usa para indicarle al master que la vista terminó de imprimir
-    sem_t player_done; // Mutex para evitar inanición del master al acceder al estado
-    sem_t game_state; // Mutex para el estado del juego //todo el nombre es igual a la memo compartida
-    sem_t variable; // Mutex para la siguiente variable
-    unsigned int readers; // Cantidad de jugadores leyendo el estado
+    sem_t players_done; // Mutex para evitar inanición del master al acceder al estado
+    sem_t players_count_mutex; // Mutex para el estado del juego 
+    sem_t next_player; // Mutex para la siguiente variable
+    unsigned int players_reading; // Cantidad de jugadores leyendo el estado
 } Semaphores;
 
 typedef struct {
