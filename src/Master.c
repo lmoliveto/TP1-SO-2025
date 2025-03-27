@@ -23,9 +23,9 @@ int main(int argc, char * argv[]) {
     initialize(&settings, game_sync);
     parse_arguments(argc, argv, &settings);
     
-    srand(settings.seed);
+    srandom(settings.seed);
 
-    intialize_board(settings.game_state);
+    intialize_board(settings.game_state); 
 
     //<---------------------------------- PIPING ---------------------------------->
 
@@ -48,7 +48,7 @@ int main(int argc, char * argv[]) {
     
             char * args[] = { settings.game_state->players->name, width, height, NULL }; //todo chequear nombre de binario
     
-            execve(args[0], args, NULL);
+            execve(args[0], args, NULL); // <- sets errno on failure
             perror("execve");
             exit(EXIT_FAILURE);
         }
@@ -60,43 +60,50 @@ int main(int argc, char * argv[]) {
     //<---------------------------------- LISTENING ---------------------------------->
 
     fd_set readfds;
+    FD_ZERO(&readfds);
 
-    int total_fds_found;
-    char buff[2];
-    int first_p = (rand() % (settings.game_state->player_count));
+    char buff[1];
+    int first_p = (random() % (settings.game_state->player_count));
     
     while(!settings.game_state->finished){
         verify_fds(settings.game_state->player_count, &readfds, pipes);
-
-        for(int i = first_p, j = 0; j < settings.game_state->player_count; j++){
-            if(FD_ISSET(pipes[i][R_END], &readfds)){
+        
+        for(int i = first_p, j = 0; j < settings.game_state->player_count; j++, i = (i + 1) % settings.game_state->player_count){
+            if( FD_ISSET(pipes[i][R_END], &readfds) ) {
+                int made_invalid_move = 0;
                 int total_read = read(pipes[i][R_END], buff, sizeof(buff));
 
-                if (total_read != 1) {
-                    perror("read wrong size");
+                if (total_read == -1) {
+                    errno = EIO;
+                    perror("read");
                     exit(EXIT_FAILURE);
                 }
                 
-                if (buff < '0' || buff > '9') {
+                if (*buff < '0' || *buff > '7') {
                     settings.game_state->players[i].invalid_move_count++;
-                    continue ;
+                    made_invalid_move = 1;
                 }
 
-                int new_x = settings.game_state->players->x_pos + Positions[*buff - '0'][0];
-                int new_y = settings.game_state->players->y_pos + Positions[*buff - '0'][1];
+                int new_x = settings.game_state->players[i].x_pos + Positions[*buff - '0'][0];
+                int new_y = settings.game_state->players[i].y_pos + Positions[*buff - '0'][1];
 
-                if ( new_x < 0 || new_y < 0 || 
-                     new_x >= settings.game_state->width || new_y >= settings.game_state->height ||
-                     settings.game_state->cells[new_y * settings.game_state->width + new_x] < 0
+                if (made_invalid_move == 0 && 
+                    (
+                        new_x < 0 || new_y < 0 || 
+                        new_x >= settings.game_state->width || new_y >= settings.game_state->height ||
+                        settings.game_state->cells[new_y * settings.game_state->width + new_x] < 0
+                    )
                 ) {
                     settings.game_state->players[i].invalid_move_count++;
-                    continue ;
+                    made_invalid_move = 1;
                 }
 
-                settings.game_state->cells[new_x + new_y * settings.game_state->width] = -i;
+                if (made_invalid_move == 0) {
+                    settings.game_state->players[i].x_pos = new_x;
+                    settings.game_state->players[i].y_pos = new_y;
+                    settings.game_state->cells[new_x + new_y * settings.game_state->width] = -i;
+                }
             }
-
-            i = (i + 1) % settings.game_state->player_count;
         }
 
         check_finished(&settings);
@@ -105,6 +112,8 @@ int main(int argc, char * argv[]) {
     for(int i = 0; i < settings.game_state->player_count; i++){
         close(pipes[i][R_END]);
     }
+
+    free(settings.game_state->cells);
 
     waitpid(-1, NULL, 0); //todo chequear si va esto o no
 
@@ -128,9 +137,9 @@ static void initialize(Settings * settings, Semaphores * sem){
 
     if ( (-1 == sem_init(sem->has_changes, 1 , 0)) || // post-> master | wait -> view (beginning)
          (-1 == sem_init(sem->print_done, 1 , 0)) || //wait -> master | post -> view (at the end)
-         (-1 == sem_init(sem->player_done, 1 , 1)) ||
+         (-1 == sem_init(sem->players_done, 1 , 1)) ||
          (-1 == sem_init(sem ->print_done, 1 , 1)) ||
-         (-1 == sem_init(sem->variable, 1 , 1))) { 
+         (-1 == sem_init(sem->sync_state, 1 , 1))) { 
         perror("sem_init");
         exit(EXIT_FAILURE);
    }
@@ -225,10 +234,12 @@ static void parse_arguments(int argc, char *argv[], Settings * settings){
 }
 
 static void check_finished(Settings * settings){
-    for(int i = 0; i < settings->game_state->player_count && !settings->game_state->finished; i++){
-        if(!settings->game_state->players[i].is_blocked){
-            settings->game_state->finished = 1;
-        }
+    int found_unblocked_player = 0;
+    for(int i = 0; i < settings->game_state->player_count && !settings->game_state->finished && found_unblocked_player == 0; i++){
+        found_unblocked_player |= !settings->game_state->players[i].is_blocked;
+    }
+    if(!found_unblocked_player){
+        settings->game_state->finished = 1;
     }
 }
 
@@ -265,23 +276,44 @@ static void verify_fds(int player_count, fd_set * set, int pipes[MAX_PLAYERS][2]
 
     int max_fd = get_max_readfd(player_count, pipes);
 
-    struct timeval timeout;
+    static struct timeval timeout;
     timeout.tv_sec = 5; //todo esta bien este tiempo?
     timeout.tv_usec = 0; //todo esta bien este tiempo?
 
     int total_fds_found = select(max_fd + 1, set, NULL, NULL, &timeout);
 
     if ( -1 == total_fds_found ) {
+        errno = EIO;
         perror("select");
         exit(EXIT_FAILURE);
     }
 
     if ( 0 == total_fds_found ) {
+        errno = ETIMEDOUT;
         printf("timeout\n");
         exit(EXIT_FAILURE);
     }
+
+    return ;
 };
 
 static void intialize_board(Board * game_state) {
+    game_state->cells = (int *) malloc(game_state->width * game_state->height * sizeof(int));
+
+    if (NULL == game_state->cells) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+
+    for (int i = 0; i < game_state->width * game_state->height; i++) {
+        game_state->cells[i] = 1 + random() % 9;
+    }
+
+    for (int i = 0; i < game_state->player_count; i++) {
+        game_state->players[i].x_pos = random() % game_state->width;
+        game_state->players[i].y_pos = random() % game_state->height;
+        game_state->cells[game_state->players[i].x_pos + game_state->players[i].y_pos * game_state->width] = -i;
+    }
+
     return ;
 }

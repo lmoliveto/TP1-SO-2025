@@ -64,15 +64,15 @@ typedef struct {
     unsigned int player_count; // Cantidad de jugadores
     Player players[9]; // Lista de jugadores
     bool finished; // Indica si el juego se ha terminado
-    int cells[]; // Puntero al comienzo del tablero. fila-0, fila-1, ..., fila-n-1
+    int * cells; // Puntero al comienzo del tablero. fila-0, fila-1, ..., fila-n-1
 } Board;
 
 typedef struct {
     sem_t has_changes; // Se usa para indicarle a la vista que hay cambios por imprimir
     sem_t print_done; // Se usa para indicarle al master que la vista terminó de imprimir
     sem_t players_done; // Mutex para evitar inanición del master al acceder al estado
-    sem_t players_count_mutex; // Mutex para el estado del juego 
-    sem_t next_player; // Mutex para la siguiente variable
+    sem_t sync_state; // Mutex para el estado del juego 
+    sem_t players_count_mutex; // Mutex para la siguiente variable
     unsigned int players_reading; // Cantidad de jugadores leyendo el estado
 } Semaphores;
 
