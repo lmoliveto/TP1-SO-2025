@@ -21,6 +21,7 @@ clean: clean_intermediates
 	@rm $(notdir $(EXES)) &> /dev/null || true
 
 clean_intermediates:
+	@rm -r ./*.dSYM > /dev/null 2>/dev/null || true
 	@rm -r ./**/*.dSYM > /dev/null 2>/dev/null || true
 	@rm ./**/*.o > /dev/null 2>/dev/null || true
 	@rm ./src/**/*.o > /dev/null 2>/dev/null || true
@@ -32,6 +33,7 @@ warnings:
 	@valgrind --leak-check=full \
          --show-leak-kinds=all \
          --track-origins=yes \
+		 --trace-children=yes \
 		 -s \
          ./Master || true
 

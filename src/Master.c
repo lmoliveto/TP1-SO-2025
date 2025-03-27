@@ -1,14 +1,14 @@
 #include "shm.h"
 #include "constants.h"
 
-
 //<---------------------------------------------- PROTOTIPES ---------------------------------------------->
 
 static void assign_default_values(Settings * settings);
 static void parse_arguments(int argc, char *argv[], Settings * settings);
 static void check_finished(Settings * settings);
 static int get_max_readfd(int total, int pipes[MAX_PLAYERS][2]);
-
+static void verify_fds(int max_fd, fd_set * set, int pipes[MAX_PLAYERS][2]);
+static void intialize_board(Board * game_state);
 
 //<---------------------------------------------- MAIN ---------------------------------------------->
 
@@ -20,11 +20,12 @@ int main(int argc, char * argv[]) {
     Settings settings;
     settings.game_state = game_state;
 
-    srand(settings.seed);
-
     assign_default_values(&settings);
     parse_arguments(argc, argv, &settings);
+    
+    srand(settings.seed);
 
+    intialize_board(settings.game_state);
 
     //<---------------------------------- PIPING ---------------------------------->
 
@@ -46,7 +47,7 @@ int main(int argc, char * argv[]) {
             close(pipes[i][R_END]);
             close(pipes[i][W_END]);
     
-            char *args[] = {settings.players[i], width, height, NULL}; //todo chequear nombre de binario
+            char * args[] = { settings.players[i], width, height, NULL }; //todo chequear nombre de binario
     
             execve(args[0], args, NULL);
             perror("execve");
@@ -57,52 +58,46 @@ int main(int argc, char * argv[]) {
     }
 
 
-    //<---------------------------------- HEARING ---------------------------------->
+    //<---------------------------------- LISTENING ---------------------------------->
 
     fd_set readfds;
-    FD_ZERO(&readfds);
-    
-    int max_readfd = get_max_readfd(settings.game_state->player_count, pipes);
 
     int total_fds_found;
     char buff[2];
     int first_p = (rand() % (settings.game_state->player_count));
-
-    struct timeval timeout;
-    timeout.tv_sec = 5; //todo esta bien este tiempo?
-    timeout.tv_usec = 0; //todo esta bien este tiempo?
     
-    //! solo estamos "iterando" los jugadores, sin la vista
     while(!settings.game_state->finished){
-        
-        FD_ZERO(&readfds);
-
-        for(int i = 0; i < settings.game_state->player_count; i++){
-            FD_SET(pipes[i][R_END], &readfds);
-        }
-    
-        total_fds_found = select(max_readfd + 1, &readfds, NULL, NULL, &timeout);
-
-        if (-1 == total_fds_found) {
-            perror("select");
-            exit(EXIT_FAILURE);
-        }
-        if ( 0 == total_fds_found) {
-            printf("timeout\n");
-            exit(EXIT_FAILURE);
-        }
+        verify_fds(settings.game_state->player_count, &readfds, pipes);
 
         for(int i = first_p, j = 0; j < settings.game_state->player_count; j++){
             if(FD_ISSET(pipes[i][R_END], &readfds)){
                 int total_read = read(pipes[i][R_END], buff, sizeof(buff));
+
                 if (total_read != 1) {
+                    perror("read wrong size");
                     exit(EXIT_FAILURE);
                 }
-                buff[1] = 0;
-                printf("p%d wrote:\n\"%s\"\n", i + 1, buff);
+                
+                if (buff < '0' || buff > '9') {
+                    settings.game_state->players[i].invalid_move_count++;
+                    continue ;
+                }
+
+                int new_x = settings.game_state->players->x_pos + Positions[*buff - '0'][0];
+                int new_y = settings.game_state->players->y_pos + Positions[*buff - '0'][1];
+
+                if ( new_x < 0 || new_y < 0 || 
+                     new_x >= settings.game_state->width || new_y >= settings.game_state->height ||
+                     settings.game_state->cells[new_y * settings.game_state->width + new_x] < 0
+                ) {
+                    settings.game_state->players[i].invalid_move_count++;
+                    continue ;
+                }
+
+                settings.game_state->cells[new_x + new_y * settings.game_state->width] = -i;
             }
 
-            i = (i == (settings.game_state->player_count - 1)) ? 0 : (i + 1);
+            i = (i + 1) % settings.game_state->player_count;
         }
 
         check_finished(&settings);
@@ -219,26 +214,56 @@ static void check_finished(Settings * settings){
     }
 }
 
-static int get_max_readfd(int total, int pipes[MAX_PLAYERS][2]){
-    if(total == 0){
+static int get_max_readfd(int player_count, int pipes[MAX_PLAYERS][2]){
+    if(player_count == 0){
         errno = EINVAL;
-        perror("get_max -> total");
+        perror("get_max_readfd -> total");
         exit(EXIT_FAILURE);
     }
 
     if(pipes == NULL){
         errno = EINVAL;
-        perror("get_max -> pipes");
+        perror("get_max_readfd -> pipes");
         exit(EXIT_FAILURE);
     }
 
     int max = pipes[0][R_END];
 
-    for(int i = 1; i < total; i++){
+    for(int i = 1; i < player_count; i++){
         if(pipes[i][R_END] > max){
             max = pipes[i][R_END];
         }
     }
 
     return max;
+}
+
+static void verify_fds(int player_count, fd_set * set, int pipes[MAX_PLAYERS][2]) {
+    FD_ZERO(set);
+
+    for(int i = 0; i < player_count; i++){
+        FD_SET(pipes[i][R_END], set);
+    }
+
+    int max_fd = get_max_readfd(player_count, pipes);
+
+    struct timeval timeout;
+    timeout.tv_sec = 5; //todo esta bien este tiempo?
+    timeout.tv_usec = 0; //todo esta bien este tiempo?
+
+    int total_fds_found = select(max_fd + 1, set, NULL, NULL, &timeout);
+
+    if ( -1 == total_fds_found ) {
+        perror("select");
+        exit(EXIT_FAILURE);
+    }
+
+    if ( 0 == total_fds_found ) {
+        printf("timeout\n");
+        exit(EXIT_FAILURE);
+    }
+};
+
+static void intialize_board(Board * game_state) {
+    return ;
 }
