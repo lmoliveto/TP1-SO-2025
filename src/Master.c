@@ -9,11 +9,12 @@ extern int optind;
 //<---------------------------------------------- PROTOTIPES ---------------------------------------------->
 
 static void initialize(Settings * settings, Semaphores * sem);
-static void check_finished(Settings * settings);
+static void check_blocked_players(Settings * settings);
 static int get_max_readfd(int total, int pipes[MAX_PLAYERS][2]);
 static void verify_fds(int max_fd, fd_set * set, int pipes[MAX_PLAYERS][2]);
 static void intialize_board(Board * game_state);
 static void parse_arguments(int argc, char * argv[], Settings * settings);
+static int valid_xy(int x, int y, Settings * settings);
 
 //<---------------------------------------------- MAIN ---------------------------------------------->
 
@@ -77,8 +78,10 @@ int main(int argc, char * argv[]) {
     FD_ZERO(&readfds);
 
     char buff[1];
-    int first_p;
-    
+    int first_p, no_valid_position;
+    int position_to_evaluate[2];
+    time_t exit_timer = time(NULL);
+
     while(!settings.game_state->finished){
         first_p = (random() % (settings.game_state->player_count));
 
@@ -86,7 +89,7 @@ int main(int argc, char * argv[]) {
         
         sem_wait(&game_sync->players_done);
         
-        for(int i = first_p, j = 0; j < settings.game_state->player_count; j++, i = (i + 1) % settings.game_state->player_count) {
+        for(int i = first_p, j = 0; j < settings.game_state->player_count && !settings.game_state->finished; j++, i = (i + 1) % settings.game_state->player_count) {
             if( FD_ISSET(pipes[i][R_END], &readfds) ) {
                 int made_invalid_move = 0;
                 int total_read = read(pipes[i][R_END], buff, sizeof(buff));
@@ -102,14 +105,14 @@ int main(int argc, char * argv[]) {
                     made_invalid_move = 1;
                 }
 
-                int new_x = settings.game_state->players[i].x_pos + Positions[*buff][0];
-                int new_y = settings.game_state->players[i].y_pos + Positions[*buff][1];
+                int new_x = settings.game_state->players[i].x_pos + Positions[(int) *buff][0];
+                int new_y = settings.game_state->players[i].y_pos + Positions[(int) *buff][1];
 
                 if (made_invalid_move == 0 && 
                     (
                         new_x < 0 || new_y < 0 || 
                         new_x >= settings.game_state->width || new_y >= settings.game_state->height ||
-                        settings.game_state->cells[new_y * settings.game_state->width + new_x] < 0
+                        settings.game_state->cells[new_y * settings.game_state->width + new_x] <= 0
                     )
                 ) {
                     settings.game_state->players[i].invalid_move_count++;
@@ -120,18 +123,37 @@ int main(int argc, char * argv[]) {
                     settings.game_state->players[i].x_pos = new_x;
                     settings.game_state->players[i].y_pos = new_y;
                     settings.game_state->cells[new_x + new_y * settings.game_state->width] = -i;
+                    exit_timer = time(NULL);
+                } else {
+                    no_valid_position = 1;
+                    for(int k = 0 ; k < DIR_NUM && no_valid_position; k++){
+                        position_to_evaluate[0] = settings.game_state->players[i].x_pos + Positions[k][0];
+                        position_to_evaluate[1] = settings.game_state->players[i].y_pos + Positions[k][1];
+                        if(valid_xy(position_to_evaluate[0], position_to_evaluate[1], &settings)){
+                            no_valid_position = 0;
+                        }
+                    }
+                    if(no_valid_position){
+                        settings.game_state->players[i].is_blocked = 1;
+                    }
                 }
+                
             }
 
+            if(time(NULL) - exit_timer >= settings.timeout){
+                settings.game_state->finished = 1;
+            }
+            
             sem_post(&game_sync->has_changes);
             
-            if (settings.view != NULL)
+            if(settings.view != NULL){
                 sem_wait(&game_sync->print_done);
+            }
             
             usleep(settings.delay * 1000);
         }
 
-        check_finished(&settings);
+        check_blocked_players(&settings);
     }
 
     for(int i = 0; i < settings.game_state->player_count; i++){
@@ -142,6 +164,7 @@ int main(int argc, char * argv[]) {
 
     return 0;
 }
+
 
 //<---------------------------------------------- FUNCTIONS ---------------------------------------------->
 
@@ -225,7 +248,7 @@ static void parse_arguments(int argc, char * argv[], Settings * settings) {
     // Create game state shm
     Board * game_state = (Board *) accessSHM("/game_state", sizeof(Board) + sizeof(int) * width * height,  O_RDWR | O_CREAT, 0644, PROT_READ | PROT_WRITE);
 
-    if (game_state == NULL) {
+    if(game_state == NULL) {
         perror("malloc");
         exit(EXIT_FAILURE);
     }
@@ -249,21 +272,20 @@ static void parse_arguments(int argc, char * argv[], Settings * settings) {
     settings->timeout = timeout;
     settings->seed = seed;
     settings->view = view_name;
-    return ;
 }
 
 static void initialize(Settings * settings, Semaphores * sem){
-    if ( (-1 == sem_init(&sem->has_changes,         1 , 0)) || // post -> master | wait -> view
+    if( (-1 == sem_init(&sem->has_changes,         1 , 0)) || // post -> master | wait -> view
          (-1 == sem_init(&sem->print_done,          1 , 0)) || // wait -> master | post -> view
          (-1 == sem_init(&sem->players_done,        1 , 0)) ||
          (-1 == sem_init(&sem->sync_state,          1 , 1)) ||
-         (-1 == sem_init(&sem->players_count_mutex, 1 , 1))) { // initialized on 1 so players can take turns requesting access
+         (-1 == sem_init(&sem->players_count_mutex, 1 , 1))) { // 
         perror("sem_init");
         exit(EXIT_FAILURE);
    }
 }
 
-static void check_finished(Settings * settings){
+static void check_blocked_players(Settings * settings){
     int found_unblocked_player = 0;
     for(int i = 0; i < settings->game_state->player_count && !settings->game_state->finished && found_unblocked_player == 0; i++){
         found_unblocked_player |= !settings->game_state->players[i].is_blocked;
@@ -312,31 +334,33 @@ static void verify_fds(int player_count, fd_set * set, int pipes[MAX_PLAYERS][2]
 
     int total_fds_found = select(max_fd + 1, set, NULL, NULL, &timeout);
 
-    if ( -1 == total_fds_found ) {
+    if(-1 == total_fds_found){
         errno = EIO;
         perror("select");
         exit(EXIT_FAILURE);
     }
 
-    if ( 0 == total_fds_found ) {
+    if(0 == total_fds_found){
         errno = ETIMEDOUT;
         perror("timeout\n");
         exit(EXIT_FAILURE);
     }
-
-    return ;
 };
 
-static void intialize_board(Board * game_state) {
-    for (int i = 0; i < game_state->width * game_state->height; i++) {
+static void intialize_board(Board * game_state){
+    for(int i = 0; i < game_state->width * game_state->height; i++){
         game_state->cells[i] = 1 + random() % 9;
     }
 
-    for (int i = 0; i < game_state->player_count; i++) {
+    for(int i = 0; i < game_state->player_count; i++){
         game_state->players[i].x_pos = random() % game_state->width;
         game_state->players[i].y_pos = random() % game_state->height;
         game_state->cells[game_state->players[i].x_pos + game_state->players[i].y_pos * game_state->width] = -i;
     }
+}
 
-    return ;
+static int valid_xy(int x, int y, Settings * settings){
+    return x >= 0 && y >= 0 && 
+        x < settings->game_state->width && y < settings->game_state->height &&
+        settings->game_state->cells[y * settings->game_state->width + x] > 0;
 }

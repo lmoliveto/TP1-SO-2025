@@ -29,13 +29,14 @@
 #define MIN_PLAYERS 1
 #define MAX_PLAYERS 9
 #define DIM_BUFFER 10
+#define DIR_NUM 8
 
 #define R_END 0
 #define W_END 1
 
 // <----------------------------------------------------------------------- ENUMS ----------------------------------------------------------------------->
 
-const int Positions [8][2] = {
+const int Positions [DIR_NUM][2] = {
     { 0, -1 }, // Up
     { 1, -1 }, // Up-right
     { 1,  0 }, // Right

@@ -2,6 +2,8 @@
 #include "shm.h"
 
 int main (int argc, char* argv[]) {
+    srand(getpid());
+
     if (argc != 3) {
         fprintf(stderr, "Usage: %s <width> <height>\n", argv[0]);
         return EXIT_FAILURE;
@@ -44,7 +46,6 @@ int main (int argc, char* argv[]) {
             sem_post(&game_sync->players_done);
         }
         sem_post(&game_sync->players_count_mutex);
-        sleep(2);
     }
 
     exit(EXIT_SUCCESS);
