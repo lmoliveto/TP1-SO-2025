@@ -86,7 +86,7 @@ int main(int argc, char * argv[]) {
         
         sem_wait(&game_sync->players_done);
         
-        for(int i = first_p, j = 0; j < settings.game_state->player_count; j++, i = (i + 1) % settings.game_state->player_count){
+        for(int i = first_p, j = 0; j < settings.game_state->player_count; j++, i = (i + 1) % settings.game_state->player_count) {
             if( FD_ISSET(pipes[i][R_END], &readfds) ) {
                 int made_invalid_move = 0;
                 int total_read = read(pipes[i][R_END], buff, sizeof(buff));
@@ -122,13 +122,14 @@ int main(int argc, char * argv[]) {
                     settings.game_state->cells[new_x + new_y * settings.game_state->width] = -i;
                 }
             }
+
+            sem_post(&game_sync->has_changes);
+            
+            if (settings.view != NULL)
+                sem_wait(&game_sync->print_done);
+            
+            usleep(settings.delay * 1000);
         }
-
-        // sem_post(&game_sync->sync_state);
-        sem_post(&game_sync->has_changes);
-
-        if (settings.view != NULL) //todo Is this valid?
-            sem_wait(&game_sync->print_done);
 
         check_finished(&settings);
     }
