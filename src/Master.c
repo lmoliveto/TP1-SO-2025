@@ -77,10 +77,14 @@ int main(int argc, char * argv[]) {
     FD_ZERO(&readfds);
 
     char buff[1];
-    int first_p = (random() % (settings.game_state->player_count));
+    int first_p;
     
     while(!settings.game_state->finished){
+        first_p = (random() % (settings.game_state->player_count));
+
         verify_fds(settings.game_state->player_count, &readfds, pipes);
+        
+        sem_wait(&game_sync->players_done);
         
         for(int i = first_p, j = 0; j < settings.game_state->player_count; j++, i = (i + 1) % settings.game_state->player_count){
             if( FD_ISSET(pipes[i][R_END], &readfds) ) {
@@ -93,13 +97,13 @@ int main(int argc, char * argv[]) {
                     exit(EXIT_FAILURE);
                 }
                 
-                if (*buff < '0' || *buff > '7') {
+                if (*buff < 0 || *buff > 7) {
                     settings.game_state->players[i].invalid_move_count++;
                     made_invalid_move = 1;
                 }
 
-                int new_x = settings.game_state->players[i].x_pos + Positions[*buff - '0'][0];
-                int new_y = settings.game_state->players[i].y_pos + Positions[*buff - '0'][1];
+                int new_x = settings.game_state->players[i].x_pos + Positions[*buff][0];
+                int new_y = settings.game_state->players[i].y_pos + Positions[*buff][1];
 
                 if (made_invalid_move == 0 && 
                     (
@@ -120,10 +124,10 @@ int main(int argc, char * argv[]) {
             }
         }
 
-        sem_post(&game_sync->sync_state);
+        // sem_post(&game_sync->sync_state);
         sem_post(&game_sync->has_changes);
 
-        if (settings.view != NULL) // @todo Is this valid?
+        if (settings.view != NULL) //todo Is this valid?
             sem_wait(&game_sync->print_done);
 
         check_finished(&settings);
@@ -248,11 +252,11 @@ static void parse_arguments(int argc, char * argv[], Settings * settings) {
 }
 
 static void initialize(Settings * settings, Semaphores * sem){
-    if ( (-1 == sem_init(&sem->has_changes, 1 , 0)) || // post-> master | wait -> view (beginning)
-         (-1 == sem_init(&sem->print_done, 1 , 0)) || //wait -> master | post -> view (at the end)
-         (-1 == sem_init(&sem->players_done, 1 , 0)) ||
-         (-1 == sem_init(&sem ->print_done, 1 , 0)) ||
-         (-1 == sem_init(&sem->sync_state, 1 , 0))) { 
+    if ( (-1 == sem_init(&sem->has_changes,         1 , 0)) || // post -> master | wait -> view
+         (-1 == sem_init(&sem->print_done,          1 , 0)) || // wait -> master | post -> view
+         (-1 == sem_init(&sem->players_done,        1 , 0)) ||
+         (-1 == sem_init(&sem->sync_state,          1 , 1)) ||
+         (-1 == sem_init(&sem->players_count_mutex, 1 , 1))) { // initialized on 1 so players can take turns requesting access
         perror("sem_init");
         exit(EXIT_FAILURE);
    }

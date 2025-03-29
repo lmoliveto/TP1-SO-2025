@@ -35,6 +35,6 @@ warnings:
          --track-origins=yes \
 		 --trace-children=yes \
 		 -s \
-         ./Master -v ./view -p ./p1 ./p2
+         ./Master -v ./view -p ./p1 ./p1
 
 .PHONY: clean clean_intermediates warnings
