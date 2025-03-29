@@ -1,27 +1,31 @@
 #include "shm.h"
 #include "constants.h"
+#include <stddef.h>
+#include <ctype.h>
+
+extern int opterr;
+extern int optind;
 
 //<---------------------------------------------- PROTOTIPES ---------------------------------------------->
 
 static void initialize(Settings * settings, Semaphores * sem);
-static void parse_arguments(int argc, char *argv[], Settings * settings);
 static void check_finished(Settings * settings);
 static int get_max_readfd(int total, int pipes[MAX_PLAYERS][2]);
 static void verify_fds(int max_fd, fd_set * set, int pipes[MAX_PLAYERS][2]);
 static void intialize_board(Board * game_state);
+static void parse_arguments(int argc, char * argv[], Settings * settings);
 
 //<---------------------------------------------- MAIN ---------------------------------------------->
 
 int main(int argc, char * argv[]) {
-    // create SHMs
-    Board * game_state = (Board *) accessSHM("/game_state", sizeof(Board),  O_RDWR | O_CREAT, 0644, PROT_READ | PROT_WRITE);
-    Semaphores * game_sync = (Semaphores *) accessSHM("/game_sync", sizeof(Semaphores),  O_RDWR | O_CREAT, 0644, PROT_READ | PROT_WRITE);
-
     Settings settings;
-    settings.game_state = game_state;
-
-    initialize(&settings, game_sync);
     parse_arguments(argc, argv, &settings);
+
+    // create SHMs
+    // Board * game_state = ... ;// This SHM is created when parsing arguments
+    Semaphores * game_sync = (Semaphores *) accessSHM("/game_sync", sizeof(Semaphores),  O_RDWR | O_CREAT, 0644, PROT_READ | PROT_WRITE);
+    
+    initialize(&settings, game_sync);
     
     srandom(settings.seed);
 
@@ -32,8 +36,8 @@ int main(int argc, char * argv[]) {
     int pipes[MAX_PLAYERS][2];
     char width[DIM_BUFFER];
     char height[DIM_BUFFER];
-    snprintf(width, sizeof(width), "%d", settings.game_state->width); //todo hace falta chequear el retorno?
-    snprintf(height, sizeof(height), "%d", settings.game_state->height); //todo hace falta chequear el retorno?
+    snprintf(width, DIM_BUFFER, "%d", settings.game_state->width); //todo hace falta chequear el retorno?
+    snprintf(height, DIM_BUFFER, "%d", settings.game_state->height); //todo hace falta chequear el retorno?
 
     for(int i = 0; i < settings.game_state->player_count; i++){
         pipe(pipes[i]);
@@ -56,6 +60,14 @@ int main(int argc, char * argv[]) {
         close(pipes[i][W_END]);
     }
 
+    int view_pid = fork();
+
+    if (view_pid == 0) {
+        char * args[] = { settings.view, NULL };
+        execve(args[0], args, NULL);
+        perror("execve");
+        exit(EXIT_FAILURE);
+    }
 
     //<---------------------------------- LISTENING ---------------------------------->
 
@@ -106,6 +118,11 @@ int main(int argc, char * argv[]) {
             }
         }
 
+        sem_post(&game_sync->sync_state);
+        sem_post(&game_sync->has_changes);
+
+        sem_wait(&game_sync->print_done);
+
         check_finished(&settings);
     }
 
@@ -113,124 +130,129 @@ int main(int argc, char * argv[]) {
         close(pipes[i][R_END]);
     }
 
-    free(settings.game_state->cells);
-
     waitpid(-1, NULL, 0); //todo chequear si va esto o no
 
     return 0;
 }
 
-
 //<---------------------------------------------- FUNCTIONS ---------------------------------------------->
 
-static void initialize(Settings * settings, Semaphores * sem){
-    unsigned int default_seed = time(NULL);
-    
-    settings->game_state->width = DEFAULT_WIDTH;
-    settings->game_state->height = DEFAULT_HEIGHT;
-    settings->delay = DEFAULT_DELAY;
-    settings->timeout = DEFAULT_TIMEOUT;
-    settings->seed = default_seed;
-    settings->view = NULL;
+static void parse_arguments(int argc, char * argv[], Settings * settings) {
+    int width = DEFAULT_WIDTH;
+    int height = DEFAULT_HEIGHT;
+    int delay = DEFAULT_DELAY;
+    int timeout = DEFAULT_TIMEOUT;
+    int seed = time(NULL);
+    char * view_name = NULL;
+    int p_index = -1; // "-p" index within argv
+    int n_index = -1; // next non player argv
 
+    char c;
+    opterr = 0; // https://stackoverflow.com/a/24331449
+    optind = 0;
+    while ((c = getopt(argc, argv, ":w:h:d:t:s:v:p:")) != -1 && c != ((unsigned char) -1) ) {
+        switch (c) {
+            case 'w':
+                if (optarg == NULL) break;
+                width = atoi(optarg);
+                if (width < MIN_WIDTH) {
+                    perror("invalid width");
+                    exit(EXIT_FAILURE);
+                }
+                break;
+            case 'h':
+                if (optarg == NULL) break;
+                height = atoi(optarg);
+                if (height < MIN_HEIGHT) {
+                    perror("invalid height");
+                    exit(EXIT_FAILURE);
+                }
+                break;
+            case 'd':
+                if (optarg == NULL) break;
+                delay = atoi(optarg);
+                break;
+            case 't':
+                if (optarg == NULL) break;
+                timeout = atoi(optarg);
+                break;
+            case 's':
+                if (optarg == NULL) break;
+                seed = atoi(optarg);
+                break;
+            case 'v':
+                view_name = optarg;
+                break;
+            case 'p':
+                p_index = optind;
+                int i = optind;
+                for (; optind < argc && strchr(argv[optind], '-') == 0; optind++) ;
+
+                n_index = optind;
+
+                if (optind - i + 1 < MIN_PLAYERS) {
+                    errno = EINVAL;
+                    perror("too few players");
+                    exit(EXIT_FAILURE);
+                }
+
+                if (optind - i + 1 > MAX_PLAYERS) {
+                    errno = EINVAL;
+                    perror("too many players");
+                    exit(EXIT_FAILURE);
+                }
+
+                break ;
+            default:
+                break;
+        }
+    }
+
+    if (p_index == -1) {
+        errno = EINVAL;
+        perror("no players");
+        exit(EXIT_FAILURE);
+    }
+
+    // Create game state shm
+    Board * game_state = (Board *) accessSHM("/game_state", sizeof(Board) + sizeof(int) * width * height,  O_RDWR | O_CREAT, 0644, PROT_READ | PROT_WRITE);
+
+    if (game_state == NULL) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+
+    game_state->player_count = 0;
+    for (int index = p_index - 1; index < n_index && index < argc; index++) {
+        strcpy(game_state->players[game_state->player_count].name, argv[index]);
+        game_state->players[game_state->player_count].name[strlen(argv[index])] = 0;
+        game_state->players[game_state->player_count].score = 0;
+        game_state->players[game_state->player_count].invalid_move_count = 0;
+        game_state->players[game_state->player_count].valid_move_count = 0;
+        game_state->players[game_state->player_count].is_blocked = 0;
+        game_state->player_count++;
+    }
+
+    settings->game_state = game_state;
+    settings->game_state->width = width;
+    settings->game_state->height = height;
     settings->game_state->finished = 0;
+    settings->delay = delay;
+    settings->timeout = timeout;
+    settings->seed = seed;
+    settings->view = view_name;
+    return ;
+}
 
-    if ( (-1 == sem_init(sem->has_changes, 1 , 0)) || // post-> master | wait -> view (beginning)
-         (-1 == sem_init(sem->print_done, 1 , 0)) || //wait -> master | post -> view (at the end)
-         (-1 == sem_init(sem->players_done, 1 , 1)) ||
-         (-1 == sem_init(sem ->print_done, 1 , 1)) ||
-         (-1 == sem_init(sem->sync_state, 1 , 1))) { 
+static void initialize(Settings * settings, Semaphores * sem){
+    if ( (-1 == sem_init(&sem->has_changes, 1 , 0)) || // post-> master | wait -> view (beginning)
+         (-1 == sem_init(&sem->print_done, 1 , 0)) || //wait -> master | post -> view (at the end)
+         (-1 == sem_init(&sem->players_done, 1 , 0)) ||
+         (-1 == sem_init(&sem ->print_done, 1 , 0)) ||
+         (-1 == sem_init(&sem->sync_state, 1 , 0))) { 
         perror("sem_init");
         exit(EXIT_FAILURE);
    }
-}
-
-static void parse_arguments(int argc, char *argv[], Settings * settings){
-    bool no_players = true;
-    for (int i = 1; i < argc; i++){
-        if (strcmp(argv[i], "-w") == 0 && i + 1 < argc){
-            i++;
-            int w = atoi(argv[i]);
-            if(w < MIN_WIDTH){
-                perror("invalid width");
-                exit(EXIT_FAILURE);
-            }
-            settings->game_state->width = w;
-        }
-        
-        else if (strcmp(argv[i], "-h") == 0 && i + 1 < argc){
-            i++;
-            int h = atoi(argv[i]);
-            if(h < MIN_HEIGHT){
-                perror("invalid height");
-                exit(EXIT_FAILURE);
-            }
-            settings->game_state->height = h;
-        }
-        
-        else if(strcmp(argv[i], "-d") == 0 && i + 1 < argc){
-            i++;
-            settings->delay = atoi(argv[i]);
-        }
-        
-        else if(strcmp(argv[i], "-t") == 0 && i + 1 < argc){
-            i++;
-            settings->timeout = atoi(argv[i]);
-        }
-        
-        else if(strcmp(argv[i], "-s") == 0 && i + 1 < argc){
-            i++;
-            settings->seed = atoi(argv[i]);
-        }
-        
-        else if(strcmp(argv[i], "-v") == 0 && i + 1 < argc){
-            i++;
-            settings->view = argv[i];
-        }
-
-        // asumo que este es el último argumento
-        else if(strcmp(argv[i], "-p") == 0){
-            no_players = false;
-            i++;
-            int j, name_len;
-            for(j = 0; j < MAX_PLAYERS && i < argc; j++, i++){
-                if((name_len = strlen(argv[i])) > 16){ //todo esto deberia ser un define pero habria que cambiar el struct de agodio
-                    errno = EINVAL;
-                    perror("player name too long");
-                    exit(EXIT_FAILURE);
-                }
-                strcpy(settings->game_state->players[j].name, argv[i]);
-                settings->game_state->players[j].name[strlen(argv[i])] = 0;
-                settings->game_state->players[j].score = 0;
-                settings->game_state->players[j].invalid_move_count = 0;
-                settings->game_state->players[j].valid_move_count = 0;
-                settings->game_state->players[j].is_blocked = 0;
-            }
-            if(j >= MAX_PLAYERS && i < argc){
-                errno = EINVAL;
-                perror("too many players");
-                exit(EXIT_FAILURE);
-            }
-            if(j < MIN_PLAYERS){
-                errno = EINVAL;
-                perror("too few players");
-                exit(EXIT_FAILURE);
-            }
-            settings->game_state->player_count = j;
-        } 
-
-        else{
-            errno = EINVAL;
-            perror("invalid argument");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    if(no_players){
-        errno = EINVAL;
-        perror("missing -p");
-        exit(EXIT_FAILURE);
-    }
 }
 
 static void check_finished(Settings * settings){
@@ -290,7 +312,7 @@ static void verify_fds(int player_count, fd_set * set, int pipes[MAX_PLAYERS][2]
 
     if ( 0 == total_fds_found ) {
         errno = ETIMEDOUT;
-        printf("timeout\n");
+        perror("timeout\n");
         exit(EXIT_FAILURE);
     }
 
@@ -298,13 +320,6 @@ static void verify_fds(int player_count, fd_set * set, int pipes[MAX_PLAYERS][2]
 };
 
 static void intialize_board(Board * game_state) {
-    game_state->cells = (int *) malloc(game_state->width * game_state->height * sizeof(int));
-
-    if (NULL == game_state->cells) {
-        perror("malloc");
-        exit(EXIT_FAILURE);
-    }
-
     for (int i = 0; i < game_state->width * game_state->height; i++) {
         game_state->cells[i] = 1 + random() % 9;
     }

@@ -3,7 +3,7 @@
 int main (int argc, char* argv[]) {
 
     char buff[1];
-    buff[0] = '1';
+    buff[0] = '4';
 
     while (1) {
         usleep(1000000);

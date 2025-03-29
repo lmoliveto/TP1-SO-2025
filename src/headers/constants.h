@@ -64,7 +64,7 @@ typedef struct {
     unsigned int player_count; // Cantidad de jugadores
     Player players[9]; // Lista de jugadores
     bool finished; // Indica si el juego se ha terminado
-    int * cells; // Puntero al comienzo del tablero. fila-0, fila-1, ..., fila-n-1
+    int cells[]; // Puntero al comienzo del tablero. fila-0, fila-1, ..., fila-n-1
 } Board;
 
 typedef struct {
