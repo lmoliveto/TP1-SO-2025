@@ -30,7 +30,7 @@ int main (int argc, char* argv[]) {
         // ... decide on the best move ...
 
         char buff[1];
-        buff[0] = 4;
+        buff[0] = rand() % DIR_NUM;
         int written = write(STDOUT_FILENO, buff, 1);
         
         if (1 != written) {
