@@ -28,8 +28,16 @@ static const char * colors[] = {
 
 static void print_board(Board * game_board);
 
-int main (void) {
-    Board * game_board = (Board *) accessSHM("/game_state", sizeof(Board), O_RDONLY, 0, PROT_READ);
+int main (int argc, char* argv[]) {
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s <width> <height>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+    
+    int width = atoi(argv[1]);
+    int height = atoi(argv[2]);
+
+    Board * game_board = (Board *) accessSHM("/game_state", sizeof(Board) + sizeof(int) * width * height, O_RDONLY, 0, PROT_READ);
     Semaphores * game_sync = (Semaphores *) accessSHM("/game_sync", sizeof(Semaphores), O_RDWR, 0, PROT_READ | PROT_WRITE);
     
     short finished = 0;

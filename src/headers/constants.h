@@ -38,7 +38,7 @@
 const int Positions [8][2] = {
     { 0, -1 }, // Up
     { 1, -1 }, // Up-right
-    { 1,  0 },  // Right
+    { 1,  0 }, // Right
     { 1,  1 }, // Down-right
     { 0,  1 }, // Down
     {-1,  1 }, // Down-left

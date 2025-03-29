@@ -60,13 +60,15 @@ int main(int argc, char * argv[]) {
         close(pipes[i][W_END]);
     }
 
-    int view_pid = fork();
+    if ( settings.view != NULL ){
+        int view_pid = fork();
 
-    if (view_pid == 0) {
-        char * args[] = { settings.view, NULL };
-        execve(args[0], args, NULL);
-        perror("execve");
-        exit(EXIT_FAILURE);
+        if (view_pid == 0) {
+            char * args[] = { settings.view, width, height, NULL };
+            execve(args[0], args, NULL);
+            perror("execve");
+            exit(EXIT_FAILURE);
+        }
     }
 
     //<---------------------------------- LISTENING ---------------------------------->
@@ -121,7 +123,8 @@ int main(int argc, char * argv[]) {
         sem_post(&game_sync->sync_state);
         sem_post(&game_sync->has_changes);
 
-        sem_wait(&game_sync->print_done);
+        if (settings.view != NULL) // @todo Is this valid?
+            sem_wait(&game_sync->print_done);
 
         check_finished(&settings);
     }
