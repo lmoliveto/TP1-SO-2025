@@ -24,6 +24,10 @@ int main(int argc, char * argv[]) {
     // create SHMs
     // Board * game_state = ... ;// This SHM is created when parsing arguments
     Semaphores * game_sync = (Semaphores *) accessSHM("/game_sync", sizeof(Semaphores),  O_RDWR | O_CREAT, 0644, PROT_READ | PROT_WRITE);
+
+    *((int *) NULL) = 2;
+    int * ptr = malloc(100);
+    * ptr = 3;
     
     initialize(&settings, game_sync);
     
