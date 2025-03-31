@@ -6,7 +6,7 @@ EXES=$(TARGETS:.c=)
 UTILS_OBJ=$(UTILS:.c=.o)
 CC=gcc
 GCC_ASAN_PRELOAD=$(shell gcc -print-file-name=libasan.so)
-CFLAGS=-Wall -g -std=c99 -fsanitize=address -D_XOPEN_SOURCE=500 -I"src/headers"
+CFLAGS=-Wall -g -std=c99 -D_XOPEN_SOURCE=500 -I"src/headers"
 
 # Compile each .c into a its corresponding executable -- without compiling in other .c's
 all: $(EXES)
