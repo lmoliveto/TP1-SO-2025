@@ -3,20 +3,27 @@
 #include <stddef.h>
 #include <ctype.h>
 
+
+//<----------------------------------------------------------------------- EXTERN VARS ----------------------------------------------------------------------->
+
 extern int opterr;
 extern int optind;
 
-//<---------------------------------------------- PROTOTIPES ---------------------------------------------->
 
+//<----------------------------------------------------------------------- PROTOTIPES ----------------------------------------------------------------------->
+
+static void parse_arguments(int argc, char * argv[], Settings * settings);
 static void initialize(Settings * settings, Semaphores * sem);
+static void welcome(Settings * settings);
 static void check_blocked_players(Settings * settings);
 static int get_max_readfd(int total, int pipes[MAX_PLAYERS][2]);
 static void verify_fds(int max_fd, fd_set * set, int pipes[MAX_PLAYERS][2]);
 static void intialize_board(Board * game_state);
-static void parse_arguments(int argc, char * argv[], Settings * settings);
 static int valid_xy(int x, int y, Settings * settings);
+static void goodbye(pid_t view_pid, Settings * settings);
 
-//<---------------------------------------------- MAIN ---------------------------------------------->
+
+//<----------------------------------------------------------------------- MAIN ----------------------------------------------------------------------->
 
 int main(int argc, char * argv[]) {
     Settings settings;
@@ -27,6 +34,8 @@ int main(int argc, char * argv[]) {
     Semaphores * game_sync = (Semaphores *) accessSHM("/game_sync", sizeof(Semaphores),  O_RDWR | O_CREAT, 0644, PROT_READ | PROT_WRITE);
     
     initialize(&settings, game_sync);
+
+    welcome(&settings);
     
     srandom(settings.seed);
 
@@ -35,6 +44,7 @@ int main(int argc, char * argv[]) {
     //<---------------------------------- PIPING ---------------------------------->
 
     int pipes[MAX_PLAYERS][2];
+    int view_pid;
     char width[DIM_BUFFER];
     char height[DIM_BUFFER];
     snprintf(width, DIM_BUFFER, "%d", settings.game_state->width); //todo hace falta chequear el retorno?
@@ -62,7 +72,7 @@ int main(int argc, char * argv[]) {
     }
 
     if ( settings.view != NULL ){
-        int view_pid = fork();
+        view_pid = fork();
 
         if (view_pid == 0) {
             char * args[] = { settings.view, width, height, NULL };
@@ -90,7 +100,7 @@ int main(int argc, char * argv[]) {
         sem_wait(&game_sync->players_done);
         
         for(int i = first_p, j = 0; j < settings.game_state->player_count && !settings.game_state->finished; j++, i = (i + 1) % settings.game_state->player_count) {
-            if( FD_ISSET(pipes[i][R_END], &readfds) ) {
+            if( FD_ISSET(pipes[i][R_END], &readfds) && !settings.game_state->players[i].is_blocked ) {
                 int made_invalid_move = 0;
                 int total_read = read(pipes[i][R_END], buff, sizeof(buff));
 
@@ -120,8 +130,10 @@ int main(int argc, char * argv[]) {
                 }
 
                 if (made_invalid_move == 0) {
+                    settings.game_state->players[i].valid_move_count++;
                     settings.game_state->players[i].x_pos = new_x;
                     settings.game_state->players[i].y_pos = new_y;
+                    settings.game_state->players[i].score += settings.game_state->cells[new_x + new_y * settings.game_state->width];
                     settings.game_state->cells[new_x + new_y * settings.game_state->width] = -i;
                     exit_timer = time(NULL);
                 } else {
@@ -153,20 +165,25 @@ int main(int argc, char * argv[]) {
             usleep(settings.delay * 1000);
         }
 
-        check_blocked_players(&settings);
+        if(!settings.game_state->finished){
+            check_blocked_players(&settings);
+            if(settings.game_state->finished){
+                sem_post(&game_sync->has_changes);
+            }
+        }
     }
 
     for(int i = 0; i < settings.game_state->player_count; i++){
         close(pipes[i][R_END]);
     }
 
-    waitpid(-1, NULL, 0); //todo chequear si va esto o no
+    goodbye(view_pid, &settings);
 
     return 0;
 }
 
 
-//<---------------------------------------------- FUNCTIONS ---------------------------------------------->
+//<----------------------------------------------------------------------- FUNCTIONS ----------------------------------------------------------------------->
 
 static void parse_arguments(int argc, char * argv[], Settings * settings) {
     int width = DEFAULT_WIDTH;
@@ -275,19 +292,29 @@ static void parse_arguments(int argc, char * argv[], Settings * settings) {
 }
 
 static void initialize(Settings * settings, Semaphores * sem){
-    if( (-1 == sem_init(&sem->has_changes,         1 , 0)) || // post -> master | wait -> view
+    if(  (-1 == sem_init(&sem->has_changes,         1 , 0)) || // post -> master | wait -> view
          (-1 == sem_init(&sem->print_done,          1 , 0)) || // wait -> master | post -> view
          (-1 == sem_init(&sem->players_done,        1 , 0)) ||
          (-1 == sem_init(&sem->sync_state,          1 , 1)) ||
-         (-1 == sem_init(&sem->players_count_mutex, 1 , 1))) { // 
+         (-1 == sem_init(&sem->players_count_mutex, 1 , 1))) {
         perror("sem_init");
         exit(EXIT_FAILURE);
    }
 }
 
+static void welcome(Settings * settings){
+    printf(ANSI_CLEAR_SCREEN);
+    printf("WELCOME TO CHOMPCHAMPS!\n\nGame information\n\twidth -> %d\n\theight -> %d\n\tdelay -> %d\n\ttimeout -> %d\n\tseed -> %ld\n\tview -> %s\n\ttotal players -> %d\n", settings->game_state->width, settings->game_state->height, settings->delay, settings->timeout, settings->seed, settings->view, settings->game_state->player_count);
+    for(int i = 0; i < settings->game_state->player_count; i++){
+        printf("\t\t%s\n", settings->game_state->players->name);
+    }
+    sleep(WELCOME_INFO_TIME);
+}
+
 static void check_blocked_players(Settings * settings){
     int found_unblocked_player = 0;
-    for(int i = 0; i < settings->game_state->player_count && !settings->game_state->finished && found_unblocked_player == 0; i++){
+
+    for(int i = 0; i < settings->game_state->player_count && !settings->game_state->finished && !found_unblocked_player; i++){
         found_unblocked_player |= !settings->game_state->players[i].is_blocked;
     }
     if(!found_unblocked_player){
@@ -372,4 +399,35 @@ static int valid_xy(int x, int y, Settings * settings){
     return x >= 0 && y >= 0 && 
         x < settings->game_state->width && y < settings->game_state->height &&
         settings->game_state->cells[y * settings->game_state->width + x] > 0;
+}
+
+static void goodbye(pid_t view_pid, Settings * settings){
+    int status;
+    pid_t waited_pid = waitpid(view_pid, &status, 0);
+
+    if(waited_pid == -1){
+        perror("waitpid failed");
+        exit(EXIT_FAILURE);
+    }
+
+    if(WIFEXITED(status)){
+        printf("\nView exited (%d)\n", WEXITSTATUS(status));
+    } else {
+        printf("\nChild %d did not terminate normally\n", waited_pid);
+    }
+
+    for(int i = 0; i < settings->game_state->player_count; i++){
+        waited_pid = waitpid(settings->game_state->players[i].pid, &status, 0);
+
+        if(waited_pid == -1){
+            perror("waitpid failed");
+            exit(EXIT_FAILURE);
+        }
+    
+        if(WIFEXITED(status)){
+            printf("Player %s (%d) exited (%d) with:\n\tscore of %d\n\t%d valid moves done\n\t%d invalid moves done\n", settings->game_state->players[i].name, i, status, settings->game_state->players[i].score, settings->game_state->players[i].valid_move_count, settings->game_state->players[i].invalid_move_count);
+        } else {
+            printf("Player %s (%d) did not terminate normally\n", settings->game_state->players[i].name, i);
+        }
+    }
 }

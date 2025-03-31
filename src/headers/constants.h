@@ -31,12 +31,15 @@
 #define MAX_PLAYERS 9
 #define DIM_BUFFER 10
 #define DIR_NUM 8
+#define WELCOME_INFO_TIME 6
 
 #define R_END 0
 #define W_END 1
 // #define PI 3.p14159265358979323846
 // #define SIN(x) ( (x) - ((x)*(x)*(x))/6.0 + ((x)*(x)*(x)*(x)*(x))/120.0 )
 // #define COS(x) ( 1 - ((x)*(x))/2.0 + ((x)*(x)*(x)*(x))/24.0 )
+
+#define ANSI_CLEAR_SCREEN "\033[H\033[J"
 
 // <----------------------------------------------------------------------- ENUMS ----------------------------------------------------------------------->
 

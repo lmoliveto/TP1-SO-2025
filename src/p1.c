@@ -30,6 +30,7 @@ int main (int argc, char* argv[]) {
         // ... decide on the best move ...
 
         char buff[1];
+        // buff[0] = 4;
         buff[0] = rand() % DIR_NUM;
         int written = write(STDOUT_FILENO, buff, 1);
         
@@ -46,6 +47,7 @@ int main (int argc, char* argv[]) {
             sem_post(&game_sync->players_done);
         }
         sem_post(&game_sync->players_count_mutex);
+        usleep(10000);
     }
 
     exit(EXIT_SUCCESS);

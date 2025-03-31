@@ -12,7 +12,6 @@
 #define ANSI_HIGH_INTENSITY_GREEN "\x1b[92m"
 #define ANSI_HIGH_INTENSITY_BLUE "\x1b[94m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
-#define ANSI_CLEAR_SCREEN "\033[H\033[J"
 #define ANSI_COLOR_GRAY    "\x1b[90m"  // ANSI escape code for gray text
 
 static const char * colors[] = {
@@ -56,6 +55,7 @@ int main (int argc, char* argv[]) {
 }
 
 static void print_board(Board * game_board){
+    char body_part;
     printf(ANSI_CLEAR_SCREEN);
     for (int y = 0; y < game_board->height; y++) {
         for (int x = 0; x < game_board->width; x++) {
@@ -63,7 +63,12 @@ static void print_board(Board * game_board){
             if (cell_value > 0) {
                 printf(ANSI_COLOR_GRAY "%d   \x1b[0m", cell_value);
             } else {
-                printf("%s%c%s   ", colors[-cell_value], '#', ANSI_COLOR_RESET);
+                if(x == game_board->players[-cell_value].x_pos && y == game_board->players[-cell_value].y_pos){
+                    body_part = '#';
+                } else{
+                    body_part = '*';
+                }
+                printf("%s%c%s   ", colors[-cell_value], body_part, ANSI_COLOR_RESET);
             }
         }
         printf("\n\n");
