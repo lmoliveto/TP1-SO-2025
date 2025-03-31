@@ -1,7 +1,5 @@
 #include "shm.h"
 #include "constants.h"
-#include <stddef.h>
-#include <ctype.h>
 
 
 //<----------------------------------------------------------------------- EXTERN VARS ----------------------------------------------------------------------->
@@ -425,7 +423,8 @@ static void goodbye(pid_t view_pid, Settings * settings){
         }
     
         if(WIFEXITED(status)){
-            printf("Player %s (%d) exited (%d) with:\n\tscore of %d\n\t%d valid moves done\n\t%d invalid moves done\n", settings->game_state->players[i].name, i, status, settings->game_state->players[i].score, settings->game_state->players[i].valid_move_count, settings->game_state->players[i].invalid_move_count);
+            printf("%sPlayer %s (%d) exited (%d) with:\n\tscore of %d\n\t%d valid moves done\n\t%d invalid moves done%s\n", 
+                colors[i], settings->game_state->players[i].name, i, status, settings->game_state->players[i].score, settings->game_state->players[i].valid_move_count, settings->game_state->players[i].invalid_move_count, ANSI_COLOR_RESET);
         } else {
             printf("Player %s (%d) did not terminate normally\n", settings->game_state->players[i].name, i);
         }

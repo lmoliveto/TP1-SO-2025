@@ -1,31 +1,6 @@
 #include "shm.h"
 #include "constants.h"
 
-// ANSI Colors
-#define ANSI_COLOR_RED     "\x1b[31m"
-#define ANSI_COLOR_GREEN   "\x1b[32m"
-#define ANSI_COLOR_YELLOW  "\x1b[33m"
-#define ANSI_COLOR_BLUE    "\x1b[34m"
-#define ANSI_COLOR_MAGENTA "\x1b[35m"
-#define ANSI_COLOR_CYAN    "\x1b[36m"
-#define ANSI_HIGH_INTENSITY_RED "\x1b[91m"
-#define ANSI_HIGH_INTENSITY_GREEN "\x1b[92m"
-#define ANSI_HIGH_INTENSITY_BLUE "\x1b[94m"
-#define ANSI_COLOR_RESET   "\x1b[0m"
-#define ANSI_COLOR_GRAY    "\x1b[90m"  // ANSI escape code for gray text
-
-static const char * colors[] = {
-    ANSI_COLOR_RED,
-    ANSI_COLOR_GREEN,
-    ANSI_COLOR_YELLOW,
-    ANSI_COLOR_BLUE,
-    ANSI_COLOR_MAGENTA,
-    ANSI_COLOR_CYAN,
-    ANSI_HIGH_INTENSITY_RED,
-    ANSI_HIGH_INTENSITY_GREEN,
-    ANSI_HIGH_INTENSITY_BLUE
-};
-
 static void print_board(Board * game_board);
 
 int main (int argc, char* argv[]) {
@@ -61,7 +36,7 @@ static void print_board(Board * game_board){
         for (int x = 0; x < game_board->width; x++) {
             int cell_value = game_board->cells[x + y * game_board->width];
             if (cell_value > 0) {
-                printf(ANSI_COLOR_GRAY "%d   \x1b[0m", cell_value);
+                printf("%s%d   %s", ANSI_COLOR_GRAY, cell_value, ANSI_COLOR_RESET);
             } else {
                 if(x == game_board->players[-cell_value].x_pos && y == game_board->players[-cell_value].y_pos){
                     body_part = '#';

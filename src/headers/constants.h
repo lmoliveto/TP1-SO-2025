@@ -15,6 +15,8 @@
 #include <sys/wait.h>
 #include <errno.h>
 #include <math.h>
+#include <stddef.h>
+#include <ctype.h>
 
 
 // <----------------------------------------------------------------------- DEFINES ----------------------------------------------------------------------->
@@ -31,13 +33,10 @@
 #define MAX_PLAYERS 9
 #define DIM_BUFFER 10
 #define DIR_NUM 8
-#define WELCOME_INFO_TIME 6
+#define WELCOME_INFO_TIME 3
 
 #define R_END 0
 #define W_END 1
-// #define PI 3.p14159265358979323846
-// #define SIN(x) ( (x) - ((x)*(x)*(x))/6.0 + ((x)*(x)*(x)*(x)*(x))/120.0 )
-// #define COS(x) ( 1 - ((x)*(x))/2.0 + ((x)*(x)*(x)*(x))/24.0 )
 
 #define ANSI_CLEAR_SCREEN "\033[H\033[J"
 
@@ -53,6 +52,35 @@ const int Positions [DIR_NUM][2] = {
     {-1,  0 }, // Left
     {-1, -1 }  // Up-left
 };
+
+
+// <----------------------------------------------------------------------- COLOR ----------------------------------------------------------------------->
+
+// ANSI Colors
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_BLUE    "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_HIGH_INTENSITY_RED "\x1b[91m"
+#define ANSI_HIGH_INTENSITY_GREEN "\x1b[92m"
+#define ANSI_HIGH_INTENSITY_BLUE "\x1b[94m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
+#define ANSI_COLOR_GRAY    "\x1b[90m"
+
+const char * colors[] = {
+    ANSI_COLOR_RED,
+    ANSI_COLOR_GREEN,
+    ANSI_COLOR_YELLOW,
+    ANSI_COLOR_BLUE,
+    ANSI_COLOR_MAGENTA,
+    ANSI_COLOR_CYAN,
+    ANSI_HIGH_INTENSITY_RED,
+    ANSI_HIGH_INTENSITY_GREEN,
+    ANSI_HIGH_INTENSITY_BLUE
+};
+
 
 // <----------------------------------------------------------------------- STRUCTS ----------------------------------------------------------------------->
 

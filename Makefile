@@ -13,7 +13,7 @@ LFLAGS=-lm
 all: $(EXES)
 
 $(EXES) : % : %.c $(UTILS_OBJ)
-	$(CC) $(CFLAGS) $< $(UTILS_OBJ) -o $(notdir $@) $(LFLAGS)
+	$(CC) $(CFLAGS) $< $(UTILS_OBJ) $(LFLAGS) -o $(notdir $@) 
 
 $(UTILS_OBJ) : %.o : %.c
 	$(CC) $(CFLAGS) -c $< -o $@
