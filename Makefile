@@ -7,12 +7,13 @@ UTILS_OBJ=$(UTILS:.c=.o)
 CC=gcc
 GCC_ASAN_PRELOAD=$(shell gcc -print-file-name=libasan.so)
 CFLAGS=-Wall -g -std=c99 -fsanitize=address -D_XOPEN_SOURCE=500 -I"src/headers"
+LFLAGS=-lm
 
 # Compile each .c into a its corresponding executable -- without compiling in other .c's
 all: $(EXES)
 
 $(EXES) : % : %.c $(UTILS_OBJ)
-	$(CC) $(CFLAGS) $< $(UTILS_OBJ) -o $(notdir $@)
+	$(CC) $(CFLAGS) $< $(UTILS_OBJ) -o $(notdir $@) $(LFLAGS)
 
 $(UTILS_OBJ) : %.o : %.c
 	$(CC) $(CFLAGS) -c $< -o $@

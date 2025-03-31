@@ -352,9 +352,18 @@ static void intialize_board(Board * game_state){
         game_state->cells[i] = 1 + random() % 9;
     }
 
-    for(int i = 0; i < game_state->player_count; i++){
-        game_state->players[i].x_pos = random() % game_state->width;
-        game_state->players[i].y_pos = random() % game_state->height;
+    // 2.75 provides a good approximation for the desired radius.
+    double radius_x = (int) (game_state->width / 2.75);
+    double radius_y = (int) (game_state->height / 2.75);
+    int center_x = (int) game_state->width / 2;
+    int center_y = (int) game_state->height / 2;
+
+    for (int i = 0; i < game_state->player_count; i++) {
+
+        double arg = 2*M_PI * i / game_state->player_count;
+        game_state->players[i].x_pos = center_x + round(radius_x * cos(arg));
+        game_state->players[i].y_pos = center_y + round(radius_y * sin(arg));
+
         game_state->cells[game_state->players[i].x_pos + game_state->players[i].y_pos * game_state->width] = -i;
     }
 }
