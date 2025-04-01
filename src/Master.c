@@ -95,8 +95,6 @@ int main(int argc, char * argv[]) {
 
         verify_fds(settings.game_state->player_count, &readfds, pipes);
         
-        sem_wait(&game_sync->players_done);
-        
         for(int i = first_p, j = 0; j < settings.game_state->player_count && !settings.game_state->finished; j++, i = (i + 1) % settings.game_state->player_count) {
             if( FD_ISSET(pipes[i][R_END], &readfds) && !settings.game_state->players[i].is_blocked ) {
                 int made_invalid_move = 0;
@@ -163,12 +161,16 @@ int main(int argc, char * argv[]) {
             usleep(settings.delay * 1000);
         }
 
+        
+
         if(!settings.game_state->finished){
             check_blocked_players(&settings);
             if(settings.game_state->finished){
                 sem_post(&game_sync->has_changes);
             }
         }
+
+        sem_post(&game_sync->sync_state);
     }
 
     for(int i = 0; i < settings.game_state->player_count; i++){
@@ -292,7 +294,7 @@ static void parse_arguments(int argc, char * argv[], Settings * settings) {
 static void initialize(Settings * settings, Semaphores * sem){
     if(  (-1 == sem_init(&sem->has_changes,         1 , 0)) || // post -> master | wait -> view
          (-1 == sem_init(&sem->print_done,          1 , 0)) || // wait -> master | post -> view
-         (-1 == sem_init(&sem->players_done,        1 , 0)) ||
+         (-1 == sem_init(&sem->master_done,        1 , 1)) ||
          (-1 == sem_init(&sem->sync_state,          1 , 1)) ||
          (-1 == sem_init(&sem->players_count_mutex, 1 , 1))) {
         perror("sem_init");

@@ -106,7 +106,7 @@ typedef struct {
 typedef struct {
     sem_t has_changes; // Se usa para indicarle a la vista que hay cambios por imprimir
     sem_t print_done; // Se usa para indicarle al master que la vista terminó de imprimir
-    sem_t players_done; // Mutex para evitar inanición del master al acceder al estado
+    sem_t master_done; // Mutex para evitar inanición del master al acceder al estado
     sem_t sync_state; // Mutex para el estado del juego 
     sem_t players_count_mutex; // Mutex para la siguiente variable
     unsigned int players_reading; // Cantidad de jugadores leyendo el estado
