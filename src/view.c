@@ -1,4 +1,4 @@
-#include "shm.h"
+#include "shmADT.h"
 #include "constants.h"
 
 static void print_board(Board * game_board);

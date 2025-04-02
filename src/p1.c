@@ -1,5 +1,5 @@
 #include "constants.h"
-#include "shm.h"
+#include "shmADT.h"
 
 int main (int argc, char* argv[]) {
     srand(getpid());
