@@ -19,6 +19,8 @@ static void verify_fds(int max_fd, fd_set * set, int pipes[MAX_PLAYERS][2]);
 static void intialize_board(Board * game_state);
 static int valid_xy(int x, int y, Settings * settings);
 static void goodbye(pid_t view_pid, Settings * settings);
+static int is_valid(char request, int player_id, int * x, int * y, Settings *settings);
+static void move_to(int x, int y, int player_id, Settings * settings);
 
 
 //<----------------------------------------------------------------------- MAIN ----------------------------------------------------------------------->
@@ -33,16 +35,16 @@ int main(int argc, char * argv[]) {
     
     initialize(&settings, game_sync);
 
-    welcome(&settings);
-    
     srandom(settings.seed);
 
-    intialize_board(settings.game_state); 
+    intialize_board(settings.game_state);
+
+    welcome(&settings); 
 
     //<---------------------------------- PIPING ---------------------------------->
 
     int pipes[MAX_PLAYERS][2];
-    int view_pid;
+    pid_t view_pid;
     char width[DIM_BUFFER];
     char height[DIM_BUFFER];
     snprintf(width, DIM_BUFFER, "%d", settings.game_state->width); //todo hace falta chequear el retorno?
@@ -50,16 +52,19 @@ int main(int argc, char * argv[]) {
 
     for(int i = 0; i < settings.game_state->player_count; i++){
         pipe(pipes[i]);
-        settings.game_state->players[i].pid = fork();
+        pid_t current_pid = fork();
+        if ( current_pid != 0) {
+            settings.game_state->players[i].pid = current_pid;
+        }
 
-        if(settings.game_state->players[i].pid == 0){
+        if(current_pid == 0){
             close(STDOUT_FILENO);
             dup(pipes[i][W_END]);
     
             close(pipes[i][R_END]);
             close(pipes[i][W_END]);
     
-            char * args[] = { settings.game_state->players->name, width, height, NULL }; //todo chequear nombre de binario
+            char * args[] = { settings.game_state->players[i].name, width, height, NULL }; //todo chequear nombre de binario
     
             execve(args[0], args, NULL); // <- sets errno on failure
             perror("execve");
@@ -85,83 +90,70 @@ int main(int argc, char * argv[]) {
     fd_set readfds;
     FD_ZERO(&readfds);
 
-    char buff[1];
-    int first_p, no_valid_position;
-    int position_to_evaluate[2];
+    char player_requests[settings.game_state->player_count][1];
+    int first_p, can_move;
     time_t exit_timer = time(NULL);
+    int i , j, adjacent_x, adjacent_y, change_found = 0;
 
-    while(!settings.game_state->finished){
+    while (!settings.game_state->finished) {
         first_p = (random() % (settings.game_state->player_count));
 
         verify_fds(settings.game_state->player_count, &readfds, pipes);
-        
-        sem_wait(&game_sync->players_done);
-        
-        for(int i = first_p, j = 0; j < settings.game_state->player_count && !settings.game_state->finished; j++, i = (i + 1) % settings.game_state->player_count) {
+       
+        //========================================= recieve move ========================================= // 
+        for(i = first_p, j = 0; j < settings.game_state->player_count && !settings.game_state->finished; j++, i = (i + 1) % settings.game_state->player_count) {
             if( FD_ISSET(pipes[i][R_END], &readfds) && !settings.game_state->players[i].is_blocked ) {
-                int made_invalid_move = 0;
-                int total_read = read(pipes[i][R_END], buff, sizeof(buff));
 
+                int total_read = read(pipes[i][R_END], player_requests[i], sizeof(player_requests[i]));
                 if (total_read == -1) {
                     errno = EIO;
                     perror("read");
                     exit(EXIT_FAILURE);
                 }
-                
-                if (*buff < 0 || *buff > 7) {
-                    settings.game_state->players[i].invalid_move_count++;
-                    made_invalid_move = 1;
-                }
 
-                int new_x = settings.game_state->players[i].x_pos + Positions[(int) *buff][0];
-                int new_y = settings.game_state->players[i].y_pos + Positions[(int) *buff][1];
-
-                if (made_invalid_move == 0 && 
-                    (
-                        new_x < 0 || new_y < 0 || 
-                        new_x >= settings.game_state->width || new_y >= settings.game_state->height ||
-                        settings.game_state->cells[new_y * settings.game_state->width + new_x] <= 0
-                    )
-                ) {
-                    settings.game_state->players[i].invalid_move_count++;
-                    made_invalid_move = 1;
-                }
-
-                if (made_invalid_move == 0) {
-                    settings.game_state->players[i].valid_move_count++;
-                    settings.game_state->players[i].x_pos = new_x;
-                    settings.game_state->players[i].y_pos = new_y;
-                    settings.game_state->players[i].score += settings.game_state->cells[new_x + new_y * settings.game_state->width];
-                    settings.game_state->cells[new_x + new_y * settings.game_state->width] = -i;
-                    exit_timer = time(NULL);
-                } else {
-                    no_valid_position = 1;
-                    for(int k = 0 ; k < DIR_NUM && no_valid_position; k++){
-                        position_to_evaluate[0] = settings.game_state->players[i].x_pos + Positions[k][0];
-                        position_to_evaluate[1] = settings.game_state->players[i].y_pos + Positions[k][1];
-                        if(valid_xy(position_to_evaluate[0], position_to_evaluate[1], &settings)){
-                            no_valid_position = 0;
-                        }
-                    }
-                    if(no_valid_position){
-                        settings.game_state->players[i].is_blocked = 1;
-                    }
-                }
-                
             }
-
-            if(time(NULL) - exit_timer >= settings.timeout){
-                settings.game_state->finished = 1;
-            }
-            
-            sem_post(&game_sync->has_changes);
-            
-            if(settings.view != NULL){
-                sem_wait(&game_sync->print_done);
-            }
-            
-            usleep(settings.delay * 1000);
         }
+        //================================================================================================//
+
+        sem_wait(&game_sync->players_done);
+        sem_wait(&game_sync->sync_state);
+        sem_post(&game_sync->players_done);
+
+        //========================================= execute move ========================================= //
+        for(i = first_p, j = 0; j < settings.game_state->player_count && !settings.game_state->finished; j++, i = (i + 1) % settings.game_state->player_count) {
+
+            int new_x, new_y;
+            if (is_valid(player_requests[i][0], i, &new_x, &new_y, &settings)) {
+                // position saved in new_x, new_y
+                move_to(new_x, new_y, i, &settings);
+                change_found = 1;
+                exit_timer = time(NULL);
+            } else { //given an invalid move, check whether the player has any valid moves left
+                can_move = 0;
+                for(int k = 0 ; k < DIR_NUM && !can_move; k++){
+                    adjacent_x = settings.game_state->players[i].x_pos + Positions[k][0];
+                    adjacent_y = settings.game_state->players[i].y_pos + Positions[k][1];
+                    can_move = valid_xy(adjacent_x, adjacent_y, &settings);
+                }
+                settings.game_state->players[i].is_blocked |= !can_move;
+            }
+        }
+        //================================================================================================//
+
+
+        // we can post here as later on we only speak with the view
+        sem_post(&game_sync->sync_state);
+
+        if(time(NULL) - exit_timer >= settings.timeout){
+            settings.game_state->finished = 1;
+        }
+
+        if (settings.view != NULL && change_found ) { 
+            sem_post(&game_sync->has_changes);
+            sem_wait(&game_sync->print_done);
+        }
+
+        usleep(settings.delay * 1000);
 
         if(!settings.game_state->finished){
             check_blocked_players(&settings);
@@ -174,7 +166,7 @@ int main(int argc, char * argv[]) {
     for(int i = 0; i < settings.game_state->player_count; i++){
         close(pipes[i][R_END]);
     }
-
+    
     goodbye(view_pid, &settings);
 
     return 0;
@@ -292,7 +284,7 @@ static void parse_arguments(int argc, char * argv[], Settings * settings) {
 static void initialize(Settings * settings, Semaphores * sem){
     if(  (-1 == sem_init(&sem->has_changes,         1 , 0)) || // post -> master | wait -> view
          (-1 == sem_init(&sem->print_done,          1 , 0)) || // wait -> master | post -> view
-         (-1 == sem_init(&sem->players_done,        1 , 0)) ||
+         (-1 == sem_init(&sem->players_done,        1 , 1)) ||
          (-1 == sem_init(&sem->sync_state,          1 , 1)) ||
          (-1 == sem_init(&sem->players_count_mutex, 1 , 1))) {
         perror("sem_init");
@@ -321,15 +313,16 @@ static void check_blocked_players(Settings * settings){
 }
 
 static int get_max_readfd(int player_count, int pipes[MAX_PLAYERS][2]){
-    if(player_count == 0){
-        errno = EINVAL;
-        perror("get_max_readfd -> total");
-        exit(EXIT_FAILURE);
-    }
 
     if(pipes == NULL){
         errno = EINVAL;
         perror("get_max_readfd -> pipes");
+        exit(EXIT_FAILURE);
+    }
+
+    if(player_count == 0){
+        errno = EINVAL;
+        perror("get_max_readfd -> total");
         exit(EXIT_FAILURE);
     }
 
@@ -429,4 +422,37 @@ static void goodbye(pid_t view_pid, Settings * settings){
             printf("Player %s (%d) did not terminate normally\n", settings->game_state->players[i].name, i);
         }
     }
+}
+
+static int is_valid(char request, int player_id, int * x, int * y, Settings *settings) {
+    int valid_move = 1, new_x, new_y;
+    
+    if (request < 0 || request > 7) {
+        settings->game_state->players[player_id].invalid_move_count++;
+        valid_move = 0;
+    } else {
+        new_x = settings->game_state->players[player_id].x_pos + Positions[(int)request][0];
+        new_y = settings->game_state->players[player_id].y_pos + Positions[(int)request][1];
+    }
+
+    
+    if (valid_move && !valid_xy(new_x, new_y, settings)) {
+        settings->game_state->players[player_id].invalid_move_count++;
+        valid_move = 0;
+    } else {
+        *x= new_x;
+        *y = new_y;
+    }
+
+    return valid_move;
+}
+
+static void move_to(int x, int y, int player_id, Settings * settings) {
+    settings->game_state->players[player_id].valid_move_count++;
+    settings->game_state->players[player_id].x_pos = x;
+    settings->game_state->players[player_id].y_pos = y;
+
+    int coord = x + y * settings->game_state->width;
+    settings->game_state->players[player_id].score += settings->game_state->cells[coord];
+    settings->game_state->cells[coord] = -player_id;
 }
