@@ -93,14 +93,14 @@ int main(int argc, char * argv[]) {
     char player_requests[settings.game_state->player_count][1];
     int first_p, can_move;
     time_t exit_timer = time(NULL);
-    int i , j, adjacent_x, adjacent_y, change_found = 0;
+    int i , j, adjacent_x, adjacent_y, new_x, new_y, change_found = 0;
 
     while (!settings.game_state->finished) {
         first_p = (random() % (settings.game_state->player_count));
 
         verify_fds(settings.game_state->player_count, &readfds, pipes);
        
-        //========================================= recieve move ========================================= // 
+        //========================================= receive move ========================================= // 
         for(i = first_p, j = 0; j < settings.game_state->player_count && !settings.game_state->finished; j++, i = (i + 1) % settings.game_state->player_count) {
             if( FD_ISSET(pipes[i][R_END], &readfds) && !settings.game_state->players[i].is_blocked ) {
 
@@ -122,7 +122,6 @@ int main(int argc, char * argv[]) {
         //========================================= execute move ========================================= //
         for(i = first_p, j = 0; j < settings.game_state->player_count && !settings.game_state->finished; j++, i = (i + 1) % settings.game_state->player_count) {
 
-            int new_x, new_y;
             if (is_valid(player_requests[i][0], i, &new_x, &new_y, &settings)) {
                 // position saved in new_x, new_y
                 move_to(new_x, new_y, i, &settings);
@@ -148,7 +147,7 @@ int main(int argc, char * argv[]) {
             settings.game_state->finished = 1;
         }
 
-        if (settings.view != NULL && change_found ) { 
+        if (settings.view != NULL && change_found) { 
             sem_post(&game_sync->has_changes);
             sem_wait(&game_sync->print_done);
         }
