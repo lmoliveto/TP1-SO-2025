@@ -7,35 +7,13 @@ struct ShmCDT{
         void * shmaddr;
 };
 
-// void * accessSHM(const char * name, size_t size, int open_flag, int mode, int prot){
-//     int fd;
 
-//     fd = shm_open(name, open_flag, mode);
-//     if(fd == -1){
-//             perror("shm_open");
-//             exit(EXIT_FAILURE);
-//     }
-
-//     if (open_flag != O_RDONLY) {
-//         if(-1 == ftruncate(fd, size)){
-//                 perror("ftruncate");
-//                 exit(EXIT_FAILURE);
-//         }
-//     }
-
-//     void * p = mmap(NULL, size, prot, MAP_SHARED, fd, 0);
-//     if(p == MAP_FAILED){
-//             perror("mmap");
-//             exit(EXIT_FAILURE);
-//     }
-
-//     return p;
-// }
-
-
-//todo en el ejemplo dado en clase sólo recibe como parámetros name y size, dejamos el resto igual?
 ShmADT create_shm(const char * restrict name, size_t size, int open_flag, int mode, int prot){
         ShmADT new_shm = malloc(sizeof(struct ShmCDT));
+        if(new_shm == NULL){
+                perror("malloc");
+                exit(EXIT_FAILURE);
+        }
 
         int fd;
 
@@ -58,6 +36,16 @@ ShmADT create_shm(const char * restrict name, size_t size, int open_flag, int mo
                 exit(EXIT_FAILURE);
         }
 
+
+        int name_len = strlen(name);
+        new_shm->name = malloc(name_len + 1);
+        if(new_shm->name == NULL){
+                perror("malloc");
+                exit(EXIT_FAILURE);
+        }
+        strcpy(new_shm->name, name);
+        new_shm->name[name_len] = 0;
+
         new_shm->fd = fd;
         new_shm->shmaddr = p;
         new_shm->size = size;
@@ -74,11 +62,16 @@ void destroy_shm(ShmADT shm){
                 exit(EXIT_FAILURE);
         }
         
+        free(shm->name);
         free(shm);
 }
 
 ShmADT open_shm(const char * restrict name, size_t size, int open_flag, int mode, int prot){
         ShmADT opened_shm = malloc(sizeof(struct ShmCDT));
+        if(opened_shm == NULL){
+                perror("malloc");
+                exit(EXIT_FAILURE);
+        }
 
         int fd;
 
@@ -94,7 +87,19 @@ ShmADT open_shm(const char * restrict name, size_t size, int open_flag, int mode
                 exit(EXIT_FAILURE);
         }
 
+                
+        int name_len = strlen(name);
+        opened_shm->name = malloc(name_len + 1);
+        if(opened_shm->name == NULL){
+                perror("malloc");
+                exit(EXIT_FAILURE);
+        }
+        strcpy(opened_shm->name, name);
+        opened_shm->name[name_len] = 0;
+
+        opened_shm->fd = fd;
         opened_shm->shmaddr = p;
+        opened_shm->size = size;
     
         return opened_shm;
 }
@@ -118,12 +123,38 @@ void close_shm(ShmADT shm){
                 perror("close"); //todo nombre para perror: .h ó syscall?
                 exit(EXIT_FAILURE);
         }
+
+        //todo va un free de shm->name?
 }
 
-ssize_t write(ShmADT shm, const void * buffer, size_t size){
+ssize_t write(ShmADT shm, const void * buffer, size_t size, size_t offset){
+        if(offset >= shm->size){
+                perror("shm offset");
+                exit(EXIT_FAILURE);
+        }
 
+        size_t idx;
+        for(int i = 0; ((idx = i + offset) < shm->size) && (i < size); i++){
+                ((char *) shm->shmaddr)[idx] = ((char *) buffer)[i];
+        }
+
+        //todo debería tirar error si no llega a escribir todo?
+        
+        return idx;
 }
 
-ssize_t read(ShmADT shm, void * buffer, size_t size){
+ssize_t read(ShmADT shm, void * buffer, size_t size, size_t offset){
+        if(offset >= shm->size){
+                perror("shm offset");
+                exit(EXIT_FAILURE);
+        }
 
+        size_t idx;
+        for(int i = 0; ((idx = i + offset) < shm->size) && (i < size); i++){
+                ((char *) buffer)[i] = ((char *) shm->shmaddr)[idx];
+        }
+
+        //todo debería tirar error si no llega a leer todo?
+        
+        return idx;
 }
