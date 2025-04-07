@@ -19,9 +19,9 @@ int main (int argc, char* argv[]) {
     int prev_count = -1;
     int player_id = -1;
     int skip_write = 0;
-    int pid = getpid();
+    pid_t pid = getpid();
     
-    for (int i = 0; i < MAX_PLAYERS; i++) {
+    for (int i = 0; i < game_board->player_count ; i++) {
         if (game_board->players[i].pid == pid) {
             player_id = i;
             break;
@@ -57,8 +57,6 @@ int main (int argc, char* argv[]) {
             sem_post(&game_sync->sync_state);
         }
         sem_post(&game_sync->players_count_mutex);
-        sem_post(&game_sync->players_done);
-        // usleep(10000);
 
         // todo decidir siguiente moviemiento
         
