@@ -24,4 +24,6 @@ ssize_t write_shm(ShmADT shm, const void * buffer, size_t size, size_t offset);
 
 ssize_t read_shm(ShmADT shm, void * buffer, size_t size, size_t offset);
 
+void * get_shm_pointer(ShmADT shm);
+
 #endif
