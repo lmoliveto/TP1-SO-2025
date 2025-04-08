@@ -7,34 +7,31 @@ struct ShmCDT{
         void * shmaddr;
 };
 
-//todo hay que setear errno en los casos de error?
-
 
 ShmADT create_shm(const char * restrict name, size_t size, int open_flag, int mode, int prot){
         ShmADT new_shm = malloc(sizeof(struct ShmCDT));
         if(new_shm == NULL){
-                perror("malloc");
+                perror("create_shm");
                 exit(EXIT_FAILURE);
         }
 
         int fd;
-
         fd = shm_open(name, open_flag, mode);
         if(fd == -1){
-                perror("shm_open"); //todo nombre para perror: .h ó syscall?
+                perror("create_shm");
                 exit(EXIT_FAILURE);
         }
     
         if(open_flag != O_RDONLY){
             if(-1 == ftruncate(fd, size)){
-                    perror("ftruncate"); //todo nombre para perror: .h ó syscall?
+                    perror("create_shm");
                     exit(EXIT_FAILURE);
             }
         }
     
         void * p = mmap(NULL, size, prot, MAP_SHARED, fd, 0);
         if(p == MAP_FAILED){
-                perror("mmap"); //todo nombre para perror: .h ó syscall?
+                perror("create_shm");
                 exit(EXIT_FAILURE);
         }
 
@@ -42,7 +39,7 @@ ShmADT create_shm(const char * restrict name, size_t size, int open_flag, int mo
         int name_len = strlen(name);
         new_shm->name = malloc(name_len + 1);
         if(new_shm->name == NULL){
-                perror("malloc");
+                perror("create_shm");
                 exit(EXIT_FAILURE);
         }
         strcpy(new_shm->name, name);
@@ -63,10 +60,19 @@ void destroy_shm(ShmADT shm){
         }
 
         // removes any mappings for those entire pages containing any part of the address space of the process starting at addr and continuing for len bytes
-        //todo como prevenimos esto?:
-        //! The munmap() function may fail if: The addr argument is not a multiple of the page size as returned by sysconf().
         if(-1 == munmap(shm->shmaddr, shm->size)){
-                perror("munmap"); //todo nombre para perror: .h ó syscall?
+                perror("destroy_shm");
+                exit(EXIT_FAILURE);
+        }
+
+        if(-1 == close(shm->fd)){
+                perror("destroy_shm");
+                exit(EXIT_FAILURE);
+        }
+
+        // removes an object previously created by shm_open()
+        if(-1 == shm_unlink(shm->name)){
+                perror("destroy_shm");
                 exit(EXIT_FAILURE);
         }
         
@@ -77,21 +83,20 @@ void destroy_shm(ShmADT shm){
 ShmADT open_shm(const char * restrict name, size_t size, int open_flag, int mode, int prot){
         ShmADT opened_shm = malloc(sizeof(struct ShmCDT));
         if(opened_shm == NULL){
-                perror("malloc");
+                perror("open_shm");
                 exit(EXIT_FAILURE);
         }
 
         int fd;
-
         fd = shm_open(name, open_flag, mode);
         if(fd == -1){
-                perror("shm_open"); //todo nombre para perror: .h ó syscall?
+                perror("open_shm");
                 exit(EXIT_FAILURE);
         }
     
         void * p = mmap(NULL, size, prot, MAP_SHARED, fd, 0);
         if(p == MAP_FAILED){
-                perror("mmap"); //todo nombre para perror: .h ó syscall?
+                perror("open_shm");
                 exit(EXIT_FAILURE);
         }
 
@@ -99,7 +104,7 @@ ShmADT open_shm(const char * restrict name, size_t size, int open_flag, int mode
         int name_len = strlen(name);
         opened_shm->name = malloc(name_len + 1);
         if(opened_shm->name == NULL){
-                perror("malloc");
+                perror("open_shm");
                 exit(EXIT_FAILURE);
         }
         strcpy(opened_shm->name, name);
@@ -112,7 +117,6 @@ ShmADT open_shm(const char * restrict name, size_t size, int open_flag, int mode
         return opened_shm;
 }
 
-//todo el orden de las syscalls está bien?
 void close_shm(ShmADT shm){
         if(shm == NULL){
                 errno = EINVAL;
@@ -120,74 +124,25 @@ void close_shm(ShmADT shm){
                 exit(EXIT_FAILURE);
         }
 
-        // removes an object previously created by shm_open()
-        if(-1 == shm_unlink(shm->name)){
-                perror("shm_unlink"); //todo nombre para perror: .h ó syscall?
-                exit(EXIT_FAILURE);
-        }
-
-        // detaches the shared memory segment located at the address specified by shmaddr from the address space of the calling process
-        if(-1 == shmdt(shm->shmaddr)){
-                perror("shmdt"); //todo nombre para perror: .h ó syscall?
+        // removes any mappings for those entire pages containing any part of the address space of the process starting at addr and continuing for len bytes
+        if(-1 == munmap(shm->shmaddr, shm->size)){
+                perror("close_shm");
                 exit(EXIT_FAILURE);
         }
 
         if(-1 == close(shm->fd)){
-                perror("close"); //todo nombre para perror: .h ó syscall?
+                perror("close_shm");
                 exit(EXIT_FAILURE);
         }
 
-        //todo va un free de shm->name?
-}
-
-ssize_t write_shm(ShmADT shm, const void * buffer, size_t size, size_t offset){
-        if(shm == NULL){
-                errno = EINVAL;
-                perror("write_shm");
-                exit(EXIT_FAILURE);
-        }
-
-        if(offset >= shm->size){
-                perror("shm offset");
-                exit(EXIT_FAILURE);
-        }
-
-        size_t idx;
-        for(int i = 0; ((idx = i + offset) < shm->size) && (i < size); i++){
-                ((char *) shm->shmaddr)[idx] = ((char *) buffer)[i];
-        }
-
-        //todo debería tirar error si no llega a escribir todo?
-        
-        return idx;
-}
-
-ssize_t read_shm(ShmADT shm, void * buffer, size_t size, size_t offset){
-        if(shm == NULL){
-                errno = EINVAL;
-                perror("read_shm");
-                exit(EXIT_FAILURE);
-        }
-
-        if(offset >= shm->size){
-                perror("shm offset");
-                exit(EXIT_FAILURE);
-        }
-
-        size_t idx;
-        for(int i = 0; ((idx = i + offset) < shm->size) && (i < size); i++){
-                ((char *) buffer)[i] = ((char *) shm->shmaddr)[idx];
-        }
-
-        //todo debería tirar error si no llega a leer todo?
-        
-        return idx;
+        free(shm->name);
+        free(shm);
 }
 
 void * get_shm_pointer(ShmADT shm){
         if(shm == NULL){
                 errno = EINVAL;
-                perror("get_shm_pointer");
+                perror("close_shm");
                 exit(EXIT_FAILURE);
         }
 

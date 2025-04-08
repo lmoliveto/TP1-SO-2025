@@ -1,5 +1,4 @@
 #include "constants.h"
-#include "shmADT.h"
 
 int main (int argc, char* argv[]) {
     srand(getpid());
@@ -12,9 +11,11 @@ int main (int argc, char* argv[]) {
     int width = atoi(argv[1]);
     int height = atoi(argv[2]);
 
-    // Both of these exit on failure, so there's no need to check for errors
-    Board * game_board = (Board *) accessSHM("/game_state", sizeof(Board) + sizeof(int) * width * height, O_RDONLY, 0, PROT_READ);
-    Semaphores * game_sync = (Semaphores *) accessSHM("/game_sync", sizeof(Semaphores), O_RDWR, 0, PROT_READ | PROT_WRITE);
+    ShmADT game_board_ADT = open_shm("/game_state", sizeof(Board) + sizeof(int) * width * height, O_RDONLY, 0, PROT_READ);
+    Board * game_board = (Board *) get_shm_pointer(game_board_ADT);
+
+    ShmADT game_sync_ADT = open_shm("/game_sync", sizeof(Semaphores), O_RDWR, 0, PROT_READ | PROT_WRITE);
+    Semaphores * game_sync = (Semaphores *) get_shm_pointer(game_sync_ADT);
 
     int prev_count = -1;
     int player_id = -1;
@@ -45,7 +46,7 @@ int main (int argc, char* argv[]) {
         sem_post(&game_sync->players_count_mutex);
 
 
-        // todo consultar estado
+        //========================================= CONSULT STATE =========================================//
 
         int count = game_board->players[player_id].valid_move_count + game_board->players[player_id].invalid_move_count;
         skip_write = count == prev_count;
@@ -63,8 +64,14 @@ int main (int argc, char* argv[]) {
         if (!skip_write) {
             // enviar movimiento
             char buff[1];
+
+            //========================================= DECIDE NEXT MOVE =========================================//
+
             // buff[0] = 4;
             buff[0] = rand() % DIR_NUM;
+
+            //========================================= SEND NEXT MOVE =========================================//
+
             int written = write(STDOUT_FILENO, buff, 1);
             if (1 != written) {
                 perror("child: write");
@@ -73,6 +80,9 @@ int main (int argc, char* argv[]) {
         }
 
     }
+
+    close_shm(game_board_ADT);
+    close_shm(game_sync_ADT);
 
     exit(EXIT_SUCCESS);
 }
