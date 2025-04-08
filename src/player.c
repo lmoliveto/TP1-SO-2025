@@ -63,10 +63,10 @@ int main (int argc, char* argv[]) {
         int move;
         
         #ifdef STRATEGY_ALPHA
-            move = strategy_best_neighbour(game_board, player_id, width, height);
+            move = strategy_alpha_beta(game_board, player_id, width, height);
         #elif STRATEGY_UP
             move = strategy_up(game_board, player_id, width, height);
-        #elif STRATEGY_NEIGHBOR
+        #elif STRATEGY_NEIGHB
             move = strategy_best_neighbor(game_board, player_id, width, height);
         #else
             move = strategy_random(game_board, player_id, width, height);
@@ -102,7 +102,7 @@ int strategy_up(const Board * board, int player_id, int width, int height) {
     return 0;
 }
 
-int strategy_best_neighbour(const Board * board, int player_id, int width, int height) {
+int strategy_best_neighbor(const Board * board, int player_id, int width, int height) {
     int best_dir = -1;
     int best_score = -1;
     for (int i = 0; i < DIR_NUM; i++) {
@@ -131,7 +131,7 @@ static void strategy_alpha_beta_rec(Board * board, int player_id, int width, int
         for (int i = 0; i < DIR_NUM; i++) {
             int x = board->players[p].x_pos + Positions[i][0];
             int y = board->players[p].y_pos + Positions[i][1];
-            if (x >= 0 && x < width && y >= 0 && y < height) {
+            if (x >= 0 && x < width && y >= 0 && y < height && board->cells[y * width + x] > 0) {
                 // Make the move
                 int score = board->cells[y * width + x];
                 board->cells[y * width + x] = -1;
@@ -174,7 +174,22 @@ int strategy_alpha_beta(const Board * board, int player_id, int width, int heigh
     int best_dir = -1;
     int best_score = -1;
 
-    Board loca_copy = *board;
-    strategy_alpha_beta_rec(&loca_copy, player_id, width, height, 3, 0, 9, &best_dir, &best_score);
+    int board_size = sizeof(Board) + sizeof(int) * width * height;
+    Board * local_copy = (Board *) malloc(board_size);
+
+    if (local_copy == NULL) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+
+    // Copy the board (INCLUDING flex array member)
+    for (int i = 0; i < board_size; i++) {
+        ((char *) local_copy)[i] = ((char *) board)[i];
+    }
+
+    strategy_alpha_beta_rec(local_copy, player_id, width, height, 3, 0, 9, &best_dir, &best_score);
+
+    free(local_copy);
+
     return best_dir;
 }
