@@ -63,7 +63,7 @@ int main (int argc, char* argv[]) {
         int move;
         
         #ifdef STRATEGY_ALPHA
-            move = strategy_best_neighbour(game_board, player_id, width, height);
+            move = strategy_alpha_beta(game_board, player_id, width, height);
         #elif STRATEGY_UP
             move = strategy_up(game_board, player_id, width, height);
         #elif STRATEGY_NEIGHBOR
