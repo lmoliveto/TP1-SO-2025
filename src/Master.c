@@ -295,7 +295,7 @@ static void welcome(Settings * settings){
     printf(ANSI_CLEAR_SCREEN);
     printf("WELCOME TO CHOMPCHAMPS!\n\nGame information\n\twidth -> %d\n\theight -> %d\n\tdelay -> %d\n\ttimeout -> %d\n\tseed -> %ld\n\tview -> %s\n\ttotal players -> %d\n", settings->game_state->width, settings->game_state->height, settings->delay, settings->timeout, settings->seed, settings->view, settings->game_state->player_count);
     for(int i = 0; i < settings->game_state->player_count; i++){
-        printf("\t\t%s\n", settings->game_state->players->name);
+        printf("\t\t%s%s%s\n", colors[i], settings->game_state->players[i].name, ANSI_COLOR_RESET);
     }
     sleep(WELCOME_INFO_TIME);
 }
