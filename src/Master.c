@@ -1,6 +1,8 @@
 #include "shm.h"
 #include "constants.h"
-
+#include "colors.h"
+#include "positions.h"
+#include "spawn_children.h"
 
 //<----------------------------------------------------------------------- EXTERN VARS ----------------------------------------------------------------------->
 
@@ -51,39 +53,12 @@ int main(int argc, char * argv[]) {
     snprintf(height, DIM_BUFFER, "%d", settings.game_state->height); //todo hace falta chequear el retorno?
 
     for(int i = 0; i < settings.game_state->player_count; i++){
-        pipe(pipes[i]);
-        pid_t current_pid = fork();
-        if ( current_pid != 0) {
-            settings.game_state->players[i].pid = current_pid;
-        }
-
-        if(current_pid == 0){
-            close(STDOUT_FILENO);
-            dup(pipes[i][W_END]);
-    
-            close(pipes[i][R_END]);
-            close(pipes[i][W_END]);
-    
-            char * args[] = { settings.game_state->players[i].name, width, height, NULL }; //todo chequear nombre de binario
-    
-            execve(args[0], args, NULL); // <- sets errno on failure
-            perror("execve");
-            exit(EXIT_FAILURE);
-        }
-
-        close(pipes[i][W_END]);
+        char * args[] = { settings.game_state->players[i].name, width, height, NULL };
+        spawn_child_pipes(pipes[i], &settings.game_state->players[i].pid, args);
     }
 
-    if ( settings.view != NULL ){
-        view_pid = fork();
-
-        if (view_pid == 0) {
-            char * args[] = { settings.view, width, height, NULL };
-            execve(args[0], args, NULL);
-            perror("execve");
-            exit(EXIT_FAILURE);
-        }
-    }
+    char * view_args[] = { settings.view, width, height, NULL };
+    spawn_child(&view_pid, view_args);
 
     //<---------------------------------- LISTENING ---------------------------------->
 

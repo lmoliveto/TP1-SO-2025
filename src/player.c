@@ -2,6 +2,7 @@
 
 #include "constants.h"
 #include "shm.h"
+#include "positions.h"
 
 int strategy_random(const Board * board, int player_id, int width, int height);
 int strategy_up(const Board * board, int player_id, int width, int height);

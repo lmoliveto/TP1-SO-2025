@@ -1,5 +1,6 @@
 #include "shm.h"
 #include "constants.h"
+#include "colors.h"
 
 static void print_board(Board * game_board);
 

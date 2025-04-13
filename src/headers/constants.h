@@ -18,7 +18,6 @@
 #include <stddef.h>
 #include <ctype.h>
 
-
 // <----------------------------------------------------------------------- DEFINES ----------------------------------------------------------------------->
 
 #define DEFAULT_WIDTH 10
@@ -32,55 +31,10 @@
 #define MIN_PLAYERS 1
 #define MAX_PLAYERS 9
 #define DIM_BUFFER 10
-#define DIR_NUM 8
 #define WELCOME_INFO_TIME 3
 
 #define R_END 0
 #define W_END 1
-
-#define ANSI_CLEAR_SCREEN "\033[H\033[J"
-
-// <----------------------------------------------------------------------- ENUMS ----------------------------------------------------------------------->
-
-const int Positions [DIR_NUM][2] = {
-    { 0, -1 }, // Up
-    { 1, -1 }, // Up-right
-    { 1,  0 }, // Right
-    { 1,  1 }, // Down-right
-    { 0,  1 }, // Down
-    {-1,  1 }, // Down-left
-    {-1,  0 }, // Left
-    {-1, -1 }  // Up-left
-};
-
-
-// <----------------------------------------------------------------------- COLOR ----------------------------------------------------------------------->
-
-// ANSI Colors
-#define ANSI_COLOR_RED     "\x1b[31m"
-#define ANSI_COLOR_GREEN   "\x1b[32m"
-#define ANSI_COLOR_YELLOW  "\x1b[33m"
-#define ANSI_COLOR_BLUE    "\x1b[34m"
-#define ANSI_COLOR_MAGENTA "\x1b[35m"
-#define ANSI_COLOR_CYAN    "\x1b[36m"
-#define ANSI_HIGH_INTENSITY_RED "\x1b[91m"
-#define ANSI_HIGH_INTENSITY_GREEN "\x1b[92m"
-#define ANSI_HIGH_INTENSITY_BLUE "\x1b[94m"
-#define ANSI_COLOR_RESET   "\x1b[0m"
-#define ANSI_COLOR_GRAY    "\x1b[90m"
-
-const char * colors[] = {
-    ANSI_COLOR_RED,
-    ANSI_COLOR_GREEN,
-    ANSI_COLOR_YELLOW,
-    ANSI_COLOR_BLUE,
-    ANSI_COLOR_MAGENTA,
-    ANSI_COLOR_CYAN,
-    ANSI_HIGH_INTENSITY_RED,
-    ANSI_HIGH_INTENSITY_GREEN,
-    ANSI_HIGH_INTENSITY_BLUE
-};
-
 
 // <----------------------------------------------------------------------- STRUCTS ----------------------------------------------------------------------->
 
@@ -119,6 +73,5 @@ typedef struct {
     time_t seed; // Semilla utilizada para la generación del tablero
     char * view; // Ruta del binario de la vista
 } Settings;
-
 
 #endif
