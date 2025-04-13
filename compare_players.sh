@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Name of your script that outputs the player lines
-RUNS=50
+RUNS=5
 TMP_DIR=$(mktemp -d)
 
 # Run script sequentially (to prevent shared memory issues)
 for i in $(seq $RUNS); do
-    ./ChompChamps -p ./player ./player_up ./player_alpha ./player_neighbor | tail -n 4 >> "$TMP_DIR/out_$i.txt"
+    ./ChompChamps -p ./player ./player_up ./player_alpha ./player_neighb | tail -n 4 >> "$TMP_DIR/out_$i.txt"
 done
 
 # Wait for all background jobs to finish

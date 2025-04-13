@@ -140,7 +140,7 @@ static void strategy_alpha_beta_rec(Board * board, int player_id, int width, int
                 board->players[p].score += score;
 
                 // Call the function recursively
-                int new_score;
+                int new_score = board->players[p].score;
                 strategy_alpha_beta_rec(board, player_id, width, height, depth - 1, alpha, beta, best_dir, &new_score);
 
                 // Unmake the move
@@ -187,7 +187,7 @@ int strategy_alpha_beta(const Board * board, int player_id, int width, int heigh
         ((char *) local_copy)[i] = ((char *) board)[i];
     }
 
-    strategy_alpha_beta_rec(local_copy, player_id, width, height, 3, 0, 9, &best_dir, &best_score);
+    strategy_alpha_beta_rec(local_copy, player_id, width, height, 3, 0, 9999999, &best_dir, &best_score);
 
     free(local_copy);
 

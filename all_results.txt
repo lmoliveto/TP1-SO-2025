@@ -1,0 +1,10 @@
+Player player_neighb (1) exited (0) with a score of 303 / 49 / 0
+Player player_alpha (0) exited (0) with a score of 32 / 6 / 32
+Player player_neighb (1) exited (0) with a score of 133 / 20 / 0
+Player player_alpha (0) exited (0) with a score of 107 / 23 / 8
+Player player_neighb (1) exited (0) with a score of 312 / 52 / 0
+Player player_alpha (0) exited (0) with a score of 44 / 11 / 45
+Player player_neighb (1) exited (0) with a score of 203 / 32 / 0
+Player player_alpha (0) exited (0) with a score of 54 / 17 / 27
+Player player_neighb (1) exited (0) with a score of 190 / 31 / 0
+Player player_alpha (0) exited (0) with a score of 140 / 29 / 0
