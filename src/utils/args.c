@@ -71,14 +71,14 @@ void parse_arguments(int argc, char * argv[], Parameter params[], int param_coun
                     if (p.type == ARG_VAR_INT) {
                         *((int *)addr) = atoi(argv[optind]);
                     } else if (p.type == ARG_VAR_STRING) {
-                        if (strlen(optarg) >= max_str_size - 1) {
+                        if (strlen(argv[optind]) >= max_str_size - 1) {
                             errno = EINVAL;
                             fprintf(stderr, "String too long for option '%c'\n", c);
                             exit(EXIT_FAILURE);
                         }
 
                         strncpy((char *)addr, argv[optind], max_str_size - 1);
-                        ((char *)addr)[strlen(optarg)] = '\0';
+                        ((char *)addr)[strlen(argv[optind])] = '\0';
                     }
                 };
                 break ;
