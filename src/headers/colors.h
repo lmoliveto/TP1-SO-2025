@@ -16,16 +16,6 @@
 #define ANSI_COLOR_RESET   "\x1b[0m"
 #define ANSI_COLOR_GRAY    "\x1b[90m"
 
-const char * colors[] = {
-    ANSI_COLOR_RED,
-    ANSI_COLOR_GREEN,
-    ANSI_COLOR_YELLOW,
-    ANSI_COLOR_BLUE,
-    ANSI_COLOR_MAGENTA,
-    ANSI_COLOR_CYAN,
-    ANSI_HIGH_INTENSITY_RED,
-    ANSI_HIGH_INTENSITY_GREEN,
-    ANSI_HIGH_INTENSITY_BLUE
-};
+extern const char * colors[];
 
 #endif

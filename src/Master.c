@@ -1,32 +1,25 @@
 #include "constants.h"
-#include "colors.h"
 #include "spawn_children.h"
 #include "args.h"
 #include "moves.h"
 #include "fds.h"
+#include "game_logic.h"
 
 
-//<----------------------------------------------------------------------- EXTERN VARS ----------------------------------------------------------------------->
+//<----------------------------------------------------------------------- EXTERN AND STATIC VARS ----------------------------------------------------------------------->
 
 extern int opterr;
 extern int optind;
+static char player_names [MAX_PLAYERS][STR_ARG_MAX_SIZE] = { 0 };
 
 
 //<----------------------------------------------------------------------- PROTOTIPES ----------------------------------------------------------------------->
 
 static void * get_player_name_addr(int i);
-static void initialize_players(ShmADT game_state_ADT);
-static void initialize_sems(Settings * settings, Semaphores * sem);
-static void welcome(Settings * settings);
-static void check_blocked_players(Settings * settings);
-static void intialize_board(ShmADT game_state_ADT);
-static void goodbye(pid_t view_pid, Settings * settings);
-static void break_the_tie_by_min(Board * game_state, char winners[], int winners_count, int * first_winner);
+static void initialize_sems(ShmADT game_sync_ADT);
 
 
 //<----------------------------------------------------------------------- MAIN ----------------------------------------------------------------------->
-
-char player_names [MAX_PLAYERS][STR_ARG_MAX_SIZE] = { 0 };
 
 int main(int argc, char * argv[]) {
     // Set default arguments & settings
@@ -57,12 +50,12 @@ int main(int argc, char * argv[]) {
     game_state->player_count = 0;
     game_state->finished = 0;
 
-    initialize_players(settings.game_state_ADT);
+    initialize_players(settings.game_state_ADT, player_names);
 
     ShmADT game_sync_ADT = create_shm("/game_sync", sizeof(Semaphores),  O_RDWR | O_CREAT, 0644, PROT_READ | PROT_WRITE);
     Semaphores * game_sync = (Semaphores *) get_shm_pointer(game_sync_ADT);
     
-    initialize_sems(&settings, game_sync);
+    initialize_sems(game_sync_ADT);
 
     srandom(settings.seed);
 
@@ -76,8 +69,16 @@ int main(int argc, char * argv[]) {
     pid_t view_pid;
     char width[DIM_BUFFER];
     char height[DIM_BUFFER];
-    snprintf(width, DIM_BUFFER, "%d", game_state->width); //todo hace falta chequear el retorno?
-    snprintf(height, DIM_BUFFER, "%d", game_state->height); //todo hace falta chequear el retorno?
+    if(0 > snprintf(width, DIM_BUFFER, "%d", game_state->width)){
+        errno = EILSEQ;
+        perror("snprintf");
+        exit(EXIT_FAILURE);
+    }
+    if(0 > snprintf(height, DIM_BUFFER, "%d", game_state->height)){
+        errno = EILSEQ;
+        perror("snprintf");
+        exit(EXIT_FAILURE);
+    }
 
     for(int i = 0; i < game_state->player_count; i++){
         char * args[] = { game_state->players[i].name, width, height, NULL };
@@ -125,7 +126,7 @@ int main(int argc, char * argv[]) {
         usleep(settings.delay * 1000);
 
         if(!game_state->finished){
-            check_blocked_players(&settings);
+            check_blocked_players(settings.game_state_ADT);
             if(game_state->finished){
                 sem_post(&game_sync->has_changes);
             }
@@ -151,176 +152,15 @@ static void * get_player_name_addr(int i) {
     return &player_names[i];
 }
 
-static void initialize_players(ShmADT game_state_ADT){
-    Board * game_state = (Board *) get_shm_pointer(game_state_ADT);
+static void initialize_sems(ShmADT game_sync_ADT){
+    Semaphores * game_sync = (Semaphores *) get_shm_pointer(game_sync_ADT);
 
-    for (int i = 0; player_names[i][0] != '\0'; i++, game_state->player_count++) {
-        strncpy(game_state->players[i].name, player_names[i], STR_ARG_MAX_SIZE - 1);
-        game_state->players[i].name[strlen(player_names[i])] = '\0';
-        game_state->players[i].score = 0;
-        game_state->players[i].valid_move_count = 0;
-        game_state->players[i].invalid_move_count = 0;
-        game_state->players[i].is_blocked = 0;
-    }
-
-    if (game_state->player_count <= 0) {
-        errno = EINVAL;
-        perror("No players specified");
-        exit(EXIT_FAILURE);
-    }
-}
-
-static void initialize_sems(Settings * settings, Semaphores * sem){
-    if(  (-1 == sem_init(&sem->has_changes,         1 , 0)) || // post -> master | wait -> view
-         (-1 == sem_init(&sem->print_done,          1 , 0)) || // wait -> master | post -> view
-         (-1 == sem_init(&sem->players_done,        1 , 1)) ||
-         (-1 == sem_init(&sem->sync_state,          1 , 1)) ||
-         (-1 == sem_init(&sem->players_count_mutex, 1 , 1))) {
+    if(  (-1 == sem_init(&game_sync->has_changes,         1 , 0)) || // post -> master | wait -> view
+         (-1 == sem_init(&game_sync->print_done,          1 , 0)) || // wait -> master | post -> view
+         (-1 == sem_init(&game_sync->players_done,        1 , 1)) ||
+         (-1 == sem_init(&game_sync->sync_state,          1 , 1)) ||
+         (-1 == sem_init(&game_sync->players_count_mutex, 1 , 1))) {
         perror("sem_init");
         exit(EXIT_FAILURE);
    }
-}
-
-static void welcome(Settings * settings){
-    Board * game_state = (Board *) get_shm_pointer(settings->game_state_ADT);
-
-    printf(ANSI_CLEAR_SCREEN);
-    printf("WELCOME TO CHOMPCHAMPS!\n\nGame information\n\twidth -> %d\n\theight -> %d\n\tdelay -> %d\n\ttimeout -> %d\n\tseed -> %ld\n\tview -> %s\n\ttotal players -> %d\n", game_state->width, game_state->height, settings->delay, settings->timeout, settings->seed, settings->view, game_state->player_count);
-    for(int i = 0; i < game_state->player_count; i++){
-        printf("\t\t%s\n", game_state->players[i].name);
-    }
-    sleep(WELCOME_INFO_TIME);
-}
-
-static void check_blocked_players(Settings * settings){
-    Board * game_state = (Board *) get_shm_pointer(settings->game_state_ADT);
-
-    int found_unblocked_player = 0;
-
-    for(int i = 0; i < game_state->player_count && !game_state->finished && !found_unblocked_player; i++){
-        found_unblocked_player |= !game_state->players[i].is_blocked;
-    }
-    if(!found_unblocked_player){
-        game_state->finished = 1;
-    }
-}
-
-static void intialize_board(ShmADT game_state_ADT){
-    Board * game_state = (Board *) get_shm_pointer(game_state_ADT);
-
-    for(int i = 0; i < game_state->width * game_state->height; i++){
-        game_state->cells[i] = 1 + random() % 9;
-    }
-
-    // 2.75 provides a good approximation for the desired radius.
-    double radius_x = (int) (game_state->width / 2.75);
-    double radius_y = (int) (game_state->height / 2.75);
-    int center_x = (int) game_state->width / 2;
-    int center_y = (int) game_state->height / 2;
-
-    for (int i = 0; i < game_state->player_count; i++) {
-
-        double arg = 2*M_PI * i / game_state->player_count;
-        game_state->players[i].x_pos = center_x + round(radius_x * cos(arg));
-        game_state->players[i].y_pos = center_y + round(radius_y * sin(arg));
-
-        game_state->cells[game_state->players[i].x_pos + game_state->players[i].y_pos * game_state->width] = -i;
-    }
-}
-
-static void goodbye(pid_t view_pid, Settings * settings){
-    Board * game_state = (Board *) get_shm_pointer(settings->game_state_ADT);
-
-    int status;
-    pid_t waited_pid = waitpid(view_pid, &status, 0);
-
-    if(waited_pid == -1){
-        perror("waitpid failed");
-        exit(EXIT_FAILURE);
-    }
-
-    if(WIFEXITED(status)){
-        printf("\nView exited (%d)\n", WEXITSTATUS(status));
-    } else {
-        printf("\nView %d did not terminate normally\n", waited_pid);
-    }
-
-    char winners[MAX_PLAYERS] = { 0 };
-    int winners_count = 0, first_winner;
-    unsigned int max_score = 0;
-
-    for(int i = 0; i < game_state->player_count; i++){
-        waited_pid = waitpid(game_state->players[i].pid, &status, 0);
-
-        if(waited_pid == -1){
-            perror("waitpid failed");
-            exit(EXIT_FAILURE);
-        }
-    
-        if(WIFEXITED(status)){
-            // define winners by score
-            if(game_state->players[i].score > max_score){
-                for(int j = 0; j < i; j++){
-                    if(winners[j] == 1){
-                        winners[j] = 0;
-                    }
-                }
-                winners[i] = 1;
-                winners_count = 1;
-                max_score = game_state->players[i].score;
-                first_winner = i;
-            } else if(game_state->players[i].score == max_score){
-                winners[i] = 1;
-                winners_count++;
-            }
-
-            printf("%sPlayer %s (%d) exited (%d) with:\n\tscore of %d\n\t%d valid moves done\n\t%d invalid moves done%s\n", 
-                colors[i], game_state->players[i].name, i, status, game_state->players[i].score, game_state->players[i].valid_move_count, game_state->players[i].invalid_move_count, ANSI_COLOR_RESET);
-        } else {
-            printf("Player %s (%d) did not terminate normally\n", game_state->players[i].name, i);
-        }
-    }
-
-    break_the_tie_by_min(game_state, winners, winners_count, &first_winner);
-
-    printf("\n\nThe winner%s:\n", winners_count > 1 ? "s are" : " is");
-    for(int i = 0; i < game_state->player_count; i++){
-        if(winners[i]){
-            printf("\t%s%s (%d)%s\n", colors[i], game_state->players[i].name, i, ANSI_COLOR_RESET);
-        }
-    }
-}
-
-static void break_the_tie_by_min(Board * game_state, char winners[], int winners_count, int * first_winner){
-    if(winners_count > 1){
-        unsigned int min_valid_move_count = game_state->players[*first_winner].valid_move_count;
-
-        for(int i = *first_winner + 1; i < game_state->player_count; i++){
-            if(winners[i] && (game_state->players[i].valid_move_count > min_valid_move_count)){
-                winners[i] = 0;
-                winners_count--;
-            } else if(winners[i] && (game_state->players[i].valid_move_count < min_valid_move_count)){
-                winners[*first_winner] = 0;
-                min_valid_move_count = game_state->players[i].valid_move_count;
-                *first_winner = i;
-                winners_count--;
-            }
-        }
-
-        if(winners_count > 1){
-            unsigned int min_invalid_move_count = game_state->players[*first_winner].invalid_move_count;
-
-            for(int i = *first_winner + 1; i < game_state->player_count; i++){
-                if(winners[i] && (game_state->players[i].invalid_move_count > min_invalid_move_count)){
-                    winners[i] = 0;
-                    winners_count--;
-                } else if(winners[i] && (game_state->players[i].invalid_move_count < min_invalid_move_count)){
-                    winners[*first_winner] = 0;
-                    min_invalid_move_count = game_state->players[i].invalid_move_count;
-                    *first_winner = i;
-                    winners_count--;
-                }
-            }
-        }
-    }
 }

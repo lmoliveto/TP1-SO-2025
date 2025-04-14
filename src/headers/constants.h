@@ -31,6 +31,7 @@
 #define MIN_HEIGHT 10
 #define MIN_PLAYERS 1
 #define MAX_PLAYERS 9
+#define MAX_REWARD 9
 #define STR_ARG_MAX_SIZE 16
 #define DIM_BUFFER 10
 #define WELCOME_INFO_TIME 3
