@@ -92,7 +92,7 @@ int main(int argc, char * argv[]) {
     fd_set readfds;
     FD_ZERO(&readfds);
 
-    char player_requests[MAX_PLAYERS][1] = { 0 };
+    signed char player_requests[MAX_PLAYERS][1] = { 0 };
     int first_p;
     time_t exit_timer = time(NULL);
     int change_found = 0;

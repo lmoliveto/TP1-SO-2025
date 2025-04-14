@@ -2,10 +2,10 @@
 #include "positions.h"
 
 static int valid_xy(int x, int y, ShmADT game_state_ADT);
-static int is_valid(char request, int player_id, int * x, int * y, ShmADT game_state_ADT);
+static int is_valid(signed char request, int player_id, int * x, int * y, ShmADT game_state_ADT);
 static void move_to(int x, int y, int player_id, ShmADT game_state_ADT);
 
-void receive_move(int first_p, char player_requests[][1], int pipes[MAX_PLAYERS][2], fd_set readfds, ShmADT game_state_ADT){
+void receive_move(int first_p, signed char player_requests[][1], int pipes[MAX_PLAYERS][2], fd_set readfds, ShmADT game_state_ADT){
     Board * game_state = (Board *) get_shm_pointer(game_state_ADT);
 
     for(int i = first_p, j = 0; j < game_state->player_count && !game_state->finished; j++, i = (i + 1) % game_state->player_count) {
@@ -18,11 +18,13 @@ void receive_move(int first_p, char player_requests[][1], int pipes[MAX_PLAYERS]
                 exit(EXIT_FAILURE);
             }
 
+        } else {
+            player_requests[i][0] = -1; 
         }
     }
 }
 
-void execute_move(int first_p, int * change_found, time_t * exit_timer, char player_requests[][1], ShmADT game_state_ADT){
+void execute_move(int first_p, int * change_found, time_t * exit_timer, signed char player_requests[][1], ShmADT game_state_ADT){
     Board * game_state = (Board *) get_shm_pointer(game_state_ADT);
     int new_x, new_y, adjacent_x, adjacent_y, can_move;
 
@@ -53,7 +55,7 @@ static int valid_xy(int x, int y, ShmADT game_state_ADT){
         game_state->cells[y * game_state->width + x] > 0;
 }
 
-static int is_valid(char request, int player_id, int * x, int * y, ShmADT game_state_ADT) {
+static int is_valid(signed char request, int player_id, int * x, int * y, ShmADT game_state_ADT) {
     Board * game_state = (Board *) get_shm_pointer(game_state_ADT);
 
     int valid_move = 1, new_x, new_y;
