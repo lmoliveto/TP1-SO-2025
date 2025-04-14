@@ -3,9 +3,10 @@
 
 #include "constants.h"
 #include "colors.h"
-#include "positions.h"
 #include "spawn_children.h"
 #include "args.h"
+#include "moves.h"
+
 
 //<----------------------------------------------------------------------- EXTERN VARS ----------------------------------------------------------------------->
 
@@ -15,26 +16,21 @@ extern int optind;
 
 //<----------------------------------------------------------------------- PROTOTIPES ----------------------------------------------------------------------->
 
-static void initialize(Settings * settings, Semaphores * sem);
+static void * get_player_name_addr(int i);
+static void initialize_players(ShmADT game_state_ADT);
+static void initialize_sems(Settings * settings, Semaphores * sem);
 static void welcome(Settings * settings);
 static void check_blocked_players(Settings * settings);
 static int get_max_readfd(int total, int pipes[MAX_PLAYERS][2]);
 static void verify_fds(int max_fd, fd_set * set, int pipes[MAX_PLAYERS][2]);
 static void intialize_board(ShmADT game_state_ADT);
-static int valid_xy(int x, int y, Settings * settings);
 static void goodbye(pid_t view_pid, Settings * settings);
-static void break_the_tie_by_min(Board * game_state, char * winners[], int winners_count, int * first_winner);
-static int is_valid(char request, int player_id, int * x, int * y, Settings *settings);
-static void move_to(int x, int y, int player_id, Settings * settings);
-static void * get_player_name_addr(int i);
+static void break_the_tie_by_min(Board * game_state, char winners[], int winners_count, int * first_winner);
+
 
 //<----------------------------------------------------------------------- MAIN ----------------------------------------------------------------------->
 
 char player_names [MAX_PLAYERS][STR_ARG_MAX_SIZE] = { 0 };
-
-static void * get_player_name_addr(int i) {
-    return &player_names[i];
-}
 
 int main(int argc, char * argv[]) {
     // Set default arguments & settings
@@ -65,22 +61,12 @@ int main(int argc, char * argv[]) {
     game_state->player_count = 0;
     game_state->finished = 0;
 
-    // Initialize player structs
-    for (int i = 0; player_names[i][0] != '\0'; i++, game_state->player_count++) {
-        strncpy(game_state->players[i].name, player_names[i], STR_ARG_MAX_SIZE - 1);
-        game_state->players[i].name[strlen(game_state->players[i].name)] = '\0';
-        game_state->players[i].score = 0;
-        game_state->players[i].valid_move_count = 0;
-        game_state->players[i].invalid_move_count = 0;
-        game_state->players[i].is_blocked = 0;
-    }
+    initialize_players(settings.game_state_ADT);
 
-    // create SHMs
-    // Board * game_state = ... ;// This SHM is created when parsing arguments
     ShmADT game_sync_ADT = create_shm("/game_sync", sizeof(Semaphores),  O_RDWR | O_CREAT, 0644, PROT_READ | PROT_WRITE);
     Semaphores * game_sync = (Semaphores *) get_shm_pointer(game_sync_ADT);
     
-    initialize(&settings, game_sync);
+    initialize_sems(&settings, game_sync);
 
     srandom(settings.seed);
 
@@ -111,54 +97,22 @@ int main(int argc, char * argv[]) {
     FD_ZERO(&readfds);
 
     char player_requests[MAX_PLAYERS][1] = { 0 };
-    int first_p, can_move;
+    int first_p;
     time_t exit_timer = time(NULL);
-    int i , j, adjacent_x, adjacent_y, new_x, new_y, change_found = 0;
+    int change_found = 0;
 
     while (!game_state->finished) {
         first_p = (random() % (game_state->player_count));
 
         verify_fds(game_state->player_count, &readfds, pipes);
        
-        //========================================= receive move ========================================= // 
-        for(i = first_p, j = 0; j < game_state->player_count && !game_state->finished; j++, i = (i + 1) % game_state->player_count) {
-            if( FD_ISSET(pipes[i][R_END], &readfds) && !game_state->players[i].is_blocked ) {
-
-                int total_read = read(pipes[i][R_END], player_requests[i], sizeof(player_requests[i]));
-                if (total_read == -1) {
-                    errno = EIO;
-                    perror("read");
-                    exit(EXIT_FAILURE);
-                }
-
-            }
-        }
-        //================================================================================================//
+        receive_move(first_p, player_requests, pipes, readfds, settings.game_state_ADT);
 
         sem_wait(&game_sync->players_done);
         sem_wait(&game_sync->sync_state);
         sem_post(&game_sync->players_done);
 
-        //========================================= execute move ========================================= //
-        for(i = first_p, j = 0; j < game_state->player_count && !game_state->finished; j++, i = (i + 1) % game_state->player_count) {
-
-            if (is_valid(player_requests[i][0], i, &new_x, &new_y, &settings)) {
-                // position saved in new_x, new_y
-                move_to(new_x, new_y, i, &settings);
-                change_found = 1;
-                exit_timer = time(NULL);
-            } else { //given an invalid move, check whether the player has any valid moves left
-                can_move = 0;
-                for(int k = 0 ; k < DIR_NUM && !can_move; k++){
-                    adjacent_x = game_state->players[i].x_pos + Positions[k][0];
-                    adjacent_y = game_state->players[i].y_pos + Positions[k][1];
-                    can_move = valid_xy(adjacent_x, adjacent_y, &settings);
-                }
-                game_state->players[i].is_blocked |= !can_move;
-            }
-        }
-        //================================================================================================//
-
+        execute_move(first_p, &change_found, &exit_timer, player_requests, settings.game_state_ADT);
 
         // we can post here as later on we only speak with the view
         sem_post(&game_sync->sync_state);
@@ -197,8 +151,24 @@ int main(int argc, char * argv[]) {
 
 //<----------------------------------------------------------------------- FUNCTIONS ----------------------------------------------------------------------->
 
+static void * get_player_name_addr(int i) {
+    return &player_names[i];
+}
 
-static void initialize(Settings * settings, Semaphores * sem){
+static void initialize_players(ShmADT game_state_ADT){
+    Board * game_state = (Board *) get_shm_pointer(game_state_ADT);
+
+    for (int i = 0; player_names[i][0] != '\0'; i++, game_state->player_count++) {
+        strncpy(game_state->players[i].name, player_names[i], STR_ARG_MAX_SIZE - 1);
+        game_state->players[i].name[strlen(game_state->players[i].name)] = '\0';
+        game_state->players[i].score = 0;
+        game_state->players[i].valid_move_count = 0;
+        game_state->players[i].invalid_move_count = 0;
+        game_state->players[i].is_blocked = 0;
+    }
+}
+
+static void initialize_sems(Settings * settings, Semaphores * sem){
     if(  (-1 == sem_init(&sem->has_changes,         1 , 0)) || // post -> master | wait -> view
          (-1 == sem_init(&sem->print_done,          1 , 0)) || // wait -> master | post -> view
          (-1 == sem_init(&sem->players_done,        1 , 1)) ||
@@ -309,14 +279,6 @@ static void intialize_board(ShmADT game_state_ADT){
     }
 }
 
-static int valid_xy(int x, int y, Settings * settings){
-    Board * game_state = (Board *) get_shm_pointer(settings->game_state_ADT);
-
-    return x >= 0 && y >= 0 && 
-        x < game_state->width && y < game_state->height &&
-        game_state->cells[y * game_state->width + x] > 0;
-}
-
 static void goodbye(pid_t view_pid, Settings * settings){
     Board * game_state = (Board *) get_shm_pointer(settings->game_state_ADT);
 
@@ -370,7 +332,7 @@ static void goodbye(pid_t view_pid, Settings * settings){
         }
     }
 
-    break_the_tie_by_min(game_state, &winners, winners_count, &first_winner);
+    break_the_tie_by_min(game_state, winners, winners_count, &first_winner);
 
     printf("\n\nThe winner%s:\n", winners_count > 1 ? "s are" : " is");
     for(int i = 0; i < game_state->player_count; i++){
@@ -380,18 +342,18 @@ static void goodbye(pid_t view_pid, Settings * settings){
     }
 }
 
-static void break_the_tie_by_min(Board * game_state, char * winners[], int winners_count, int * first_winner){
+static void break_the_tie_by_min(Board * game_state, char winners[], int winners_count, int * first_winner){
     if(winners_count > 1){
         unsigned int min_valid_move_count = game_state->players[*first_winner].valid_move_count;
 
-        for(int i = first_winner + 1; i < game_state->player_count; i++){
-            if(*winners[i] && (game_state->players[i].valid_move_count > min_valid_move_count)){
-                *winners[i] = 0;
+        for(int i = *first_winner + 1; i < game_state->player_count; i++){
+            if(winners[i] && (game_state->players[i].valid_move_count > min_valid_move_count)){
+                winners[i] = 0;
                 winners_count--;
-            } else if(*winners[i] && (game_state->players[i].valid_move_count < min_valid_move_count)){
-                *winners[*first_winner] = 0;
+            } else if(winners[i] && (game_state->players[i].valid_move_count < min_valid_move_count)){
+                winners[*first_winner] = 0;
                 min_valid_move_count = game_state->players[i].valid_move_count;
-                first_winner = i;
+                *first_winner = i;
                 winners_count--;
             }
         }
@@ -399,54 +361,17 @@ static void break_the_tie_by_min(Board * game_state, char * winners[], int winne
         if(winners_count > 1){
             unsigned int min_invalid_move_count = game_state->players[*first_winner].invalid_move_count;
 
-            for(int i = first_winner + 1; i < game_state->player_count; i++){
-                if(*winners[i] && (game_state->players[i].invalid_move_count > min_invalid_move_count)){
-                    *winners[i] = 0;
+            for(int i = *first_winner + 1; i < game_state->player_count; i++){
+                if(winners[i] && (game_state->players[i].invalid_move_count > min_invalid_move_count)){
+                    winners[i] = 0;
                     winners_count--;
-                } else if(*winners[i] && (game_state->players[i].invalid_move_count < min_invalid_move_count)){
-                    *winners[*first_winner] = 0;
+                } else if(winners[i] && (game_state->players[i].invalid_move_count < min_invalid_move_count)){
+                    winners[*first_winner] = 0;
                     min_invalid_move_count = game_state->players[i].invalid_move_count;
-                    first_winner = i;
+                    *first_winner = i;
                     winners_count--;
                 }
             }
         }
     }
-}
-
-static int is_valid(char request, int player_id, int * x, int * y, Settings *settings) {
-    Board * game_state = (Board *) get_shm_pointer(settings->game_state_ADT);
-
-    int valid_move = 1, new_x, new_y;
-    
-    if (request < 0 || request > 7) {
-        game_state->players[player_id].invalid_move_count++;
-        valid_move = 0;
-    } else {
-        new_x = game_state->players[player_id].x_pos + Positions[(int)request][0];
-        new_y = game_state->players[player_id].y_pos + Positions[(int)request][1];
-    }
-
-    
-    if (valid_move && !valid_xy(new_x, new_y, settings)) {
-        game_state->players[player_id].invalid_move_count++;
-        valid_move = 0;
-    } else {
-        *x= new_x;
-        *y = new_y;
-    }
-
-    return valid_move;
-}
-
-static void move_to(int x, int y, int player_id, Settings * settings) {
-    Board * game_state = (Board *) get_shm_pointer(settings->game_state_ADT);
-
-    game_state->players[player_id].valid_move_count++;
-    game_state->players[player_id].x_pos = x;
-    game_state->players[player_id].y_pos = y;
-
-    int coord = x + y * game_state->width;
-    game_state->players[player_id].score += game_state->cells[coord];
-    game_state->cells[coord] = -player_id;
 }

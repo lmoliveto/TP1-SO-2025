@@ -5,7 +5,9 @@
 
 #include "constants.h"
 #include "shmADT.h"
-#include "positions.h"
+
+#define DIR_NUM 8
+extern const int Positions[DIR_NUM][2];
 
 int strategy_random(const Board * board, int player_id, int width, int height);
 int strategy_up(const Board * board, int player_id, int width, int height);
