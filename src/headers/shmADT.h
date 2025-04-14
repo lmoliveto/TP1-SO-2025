@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
+#include <string.h>
 
 typedef struct ShmCDT* ShmADT;
 

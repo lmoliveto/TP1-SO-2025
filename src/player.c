@@ -1,7 +1,7 @@
 // Compile with -DSTRATEGY_* to select which strategy to use, if none is selected then the player chooses a random direction
 
 #include "constants.h"
-#include "shm.h"
+#include "shmADT.h"
 #include "positions.h"
 
 int strategy_random(const Board * board, int player_id, int width, int height);
@@ -24,8 +24,11 @@ int main (int argc, char* argv[]) {
     int height = atoi(argv[2]);
 
     // Both of these exit on failure, so there's no need to check for errors
-    Board * game_board = (Board *) accessSHM("/game_state", sizeof(Board) + sizeof(int) * width * height, O_RDONLY, 0, PROT_READ);
-    Semaphores * game_sync = (Semaphores *) accessSHM("/game_sync", sizeof(Semaphores), O_RDWR, 0, PROT_READ | PROT_WRITE);
+    ShmADT game_board_ADT = open_shm("/game_state", sizeof(Board) + sizeof(int) * width * height, O_RDONLY, 0, PROT_READ);
+    Board * game_board = (Board *) get_shm_pointer(game_board_ADT);
+
+    ShmADT game_sync_ADT = open_shm("/game_sync", sizeof(Semaphores), O_RDWR, 0, PROT_READ | PROT_WRITE);
+    Semaphores * game_sync = (Semaphores *) get_shm_pointer(game_sync_ADT);
 
     int prev_count = -1;
     int player_id = -1;
@@ -91,6 +94,9 @@ int main (int argc, char* argv[]) {
         }
 
     }
+
+    close_shm(game_board_ADT);
+    close_shm(game_sync_ADT);
 
     exit(EXIT_SUCCESS);
 }
