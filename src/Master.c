@@ -20,6 +20,7 @@ static void verify_fds(int max_fd, fd_set * set, int pipes[MAX_PLAYERS][2]);
 static void intialize_board(ShmADT game_state_ADT);
 static int valid_xy(int x, int y, Settings * settings);
 static void goodbye(pid_t view_pid, Settings * settings);
+static void break_the_tie_by_min(Board * game_state, char * winners[], int winners_count, int * first_winner);
 static int is_valid(char request, int player_id, int * x, int * y, Settings *settings);
 static void move_to(int x, int y, int player_id, Settings * settings);
 static void * get_player_name_addr(int i);
@@ -327,8 +328,12 @@ static void goodbye(pid_t view_pid, Settings * settings){
     if(WIFEXITED(status)){
         printf("\nView exited (%d)\n", WEXITSTATUS(status));
     } else {
-        printf("\nChild %d did not terminate normally\n", waited_pid);
+        printf("\nView %d did not terminate normally\n", waited_pid);
     }
+
+    char winners[MAX_PLAYERS] = { 0 };
+    int winners_count = 0, first_winner;
+    unsigned int max_score = 0;
 
     for(int i = 0; i < game_state->player_count; i++){
         waited_pid = waitpid(game_state->players[i].pid, &status, 0);
@@ -339,10 +344,69 @@ static void goodbye(pid_t view_pid, Settings * settings){
         }
     
         if(WIFEXITED(status)){
+            // define winners by score
+            if(game_state->players[i].score > max_score){
+                for(int j = 0; j < i; j++){
+                    if(winners[j] == 1){
+                        winners[j] = 0;
+                    }
+                }
+                winners[i] = 1;
+                winners_count = 1;
+                max_score = game_state->players[i].score;
+                first_winner = i;
+            } else if(game_state->players[i].score == max_score){
+                winners[i] = 1;
+                winners_count++;
+            }
+
             printf("%sPlayer %s (%d) exited (%d) with:\n\tscore of %d\n\t%d valid moves done\n\t%d invalid moves done%s\n", 
                 colors[i], game_state->players[i].name, i, status, game_state->players[i].score, game_state->players[i].valid_move_count, game_state->players[i].invalid_move_count, ANSI_COLOR_RESET);
         } else {
             printf("Player %s (%d) did not terminate normally\n", game_state->players[i].name, i);
+        }
+    }
+
+    break_the_tie_by_min(game_state, &winners, winners_count, &first_winner);
+
+    printf("\n\nThe winner%s:\n", winners_count > 1 ? "s are" : " is");
+    for(int i = 0; i < game_state->player_count; i++){
+        if(winners[i]){
+            printf("\t%s%s (%d)%s\n", colors[i], game_state->players[i].name, i, ANSI_COLOR_RESET);
+        }
+    }
+}
+
+static void break_the_tie_by_min(Board * game_state, char * winners[], int winners_count, int * first_winner){
+    if(winners_count > 1){
+        unsigned int min_valid_move_count = game_state->players[*first_winner].valid_move_count;
+
+        for(int i = first_winner + 1; i < game_state->player_count; i++){
+            if(*winners[i] && (game_state->players[i].valid_move_count > min_valid_move_count)){
+                *winners[i] = 0;
+                winners_count--;
+            } else if(*winners[i] && (game_state->players[i].valid_move_count < min_valid_move_count)){
+                *winners[*first_winner] = 0;
+                min_valid_move_count = game_state->players[i].valid_move_count;
+                first_winner = i;
+                winners_count--;
+            }
+        }
+
+        if(winners_count > 1){
+            unsigned int min_invalid_move_count = game_state->players[*first_winner].invalid_move_count;
+
+            for(int i = first_winner + 1; i < game_state->player_count; i++){
+                if(*winners[i] && (game_state->players[i].invalid_move_count > min_invalid_move_count)){
+                    *winners[i] = 0;
+                    winners_count--;
+                } else if(*winners[i] && (game_state->players[i].invalid_move_count < min_invalid_move_count)){
+                    *winners[*first_winner] = 0;
+                    min_invalid_move_count = game_state->players[i].invalid_move_count;
+                    first_winner = i;
+                    winners_count--;
+                }
+            }
         }
     }
 }
