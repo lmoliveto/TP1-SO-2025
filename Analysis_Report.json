@@ -92,6 +92,98 @@
       ],
       "projects": [],
       "sastId": ""
+    },
+    {
+      "code": "V009",
+      "cwe": 0,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 0,
+      "message": "To use free version of PVS-Studio, source code files are required to start with a special comment.",
+      "positions": [
+        {
+          "endLine": 1,
+          "file": "/root/src/utils/args.c",
+          "line": 1,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 0,
+            "nextLine": 0,
+            "previousLine": 0
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": ""
+    },
+    {
+      "code": "V009",
+      "cwe": 0,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 0,
+      "message": "To use free version of PVS-Studio, source code files are required to start with a special comment.",
+      "positions": [
+        {
+          "endLine": 1,
+          "file": "/root/src/utils/moves.c",
+          "line": 1,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 0,
+            "nextLine": 0,
+            "previousLine": 0
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": ""
+    },
+    {
+      "code": "V009",
+      "cwe": 0,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 0,
+      "message": "To use free version of PVS-Studio, source code files are required to start with a special comment.",
+      "positions": [
+        {
+          "endLine": 1,
+          "file": "/root/src/utils/shmADT.c",
+          "line": 1,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 0,
+            "nextLine": 0,
+            "previousLine": 0
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": ""
+    },
+    {
+      "code": "V009",
+      "cwe": 0,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 0,
+      "message": "To use free version of PVS-Studio, source code files are required to start with a special comment.",
+      "positions": [
+        {
+          "endLine": 1,
+          "file": "/root/src/utils/spawn_players.c",
+          "line": 1,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 0,
+            "nextLine": 0,
+            "previousLine": 0
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": ""
     }
   ]
 }
