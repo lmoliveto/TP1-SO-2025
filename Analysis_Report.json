@@ -1,0 +1,212 @@
+{
+  "version": 2,
+  "warnings": [
+    {
+      "code": "V647",
+      "cwe": 587,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 1,
+      "message": "The value of 'int' type is assigned to the pointer of 'int' type. Consider inspecting the assignment: 'first_winner = i'.",
+      "positions": [
+        {
+          "endLine": 394,
+          "file": "/root/src/Master.c",
+          "line": 394,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 1123869,
+            "nextLine": 2660469,
+            "previousLine": 1741430717
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": "CERT-INT36-C"
+    },
+    {
+      "code": "V647",
+      "cwe": 587,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 1,
+      "message": "The value of 'int' type is assigned to the pointer of 'int' type. Consider inspecting the assignment: 'first_winner = i'.",
+      "positions": [
+        {
+          "endLine": 409,
+          "file": "/root/src/Master.c",
+          "line": 409,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 1123869,
+            "nextLine": 2660469,
+            "previousLine": -414583820
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": "CERT-INT36-C"
+    },
+    {
+      "code": "V692",
+      "cwe": 788,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 1,
+      "message": "An inappropriate attempt to append a null character to a string. To determine the length of a string by 'strlen' function correctly, a string ending with a null terminator should be used in the first place.",
+      "positions": [
+        {
+          "endLine": 71,
+          "file": "/root/src/Master.c",
+          "line": 71,
+          "navigation": {
+            "columns": 0,
+            "currentLine": -27768398,
+            "nextLine": -715755498,
+            "previousLine": -1845137122
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": "CERT-STR32-C"
+    },
+    {
+      "code": "V547",
+      "cwe": 570,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 2,
+      "message": "Expression 'game_state->finished' is always false.",
+      "positions": [
+        {
+          "endLine": 179,
+          "file": "/root/src/Master.c",
+          "line": 179,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 1491763761,
+            "nextLine": -1381909291,
+            "previousLine": 1963771162
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": ""
+    },
+    {
+      "code": "V560",
+      "cwe": 571,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 2,
+      "message": "A part of conditional expression is always true: !game_state->finished.",
+      "positions": [
+        {
+          "endLine": 124,
+          "file": "/root/src/Master.c",
+          "line": 124,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 437313061,
+            "nextLine": 2051413646,
+            "previousLine": -254226449
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": ""
+    },
+    {
+      "code": "V560",
+      "cwe": 571,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 2,
+      "message": "A part of conditional expression is always true: !game_state->finished.",
+      "positions": [
+        {
+          "endLine": 143,
+          "file": "/root/src/Master.c",
+          "line": 143,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 437313061,
+            "nextLine": 0,
+            "previousLine": -201666577
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": ""
+    },
+    {
+      "code": "V601",
+      "cwe": 704,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 2,
+      "message": "Pointer is implicitly cast to an integer type.",
+      "positions": [
+        {
+          "endLine": 387,
+          "file": "/root/src/Master.c",
+          "line": 387,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 1288967147,
+            "nextLine": 1297284922,
+            "previousLine": 0
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": "CERT-INT36-C"
+    },
+    {
+      "code": "V601",
+      "cwe": 704,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 2,
+      "message": "Pointer is implicitly cast to an integer type.",
+      "positions": [
+        {
+          "endLine": 402,
+          "file": "/root/src/Master.c",
+          "line": 402,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 1288967147,
+            "nextLine": 917628482,
+            "previousLine": 0
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": "CERT-INT36-C"
+    },
+    {
+      "code": "V619",
+      "cwe": 480,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 2,
+      "message": "The array 'game_state->players' is being utilized as a pointer to single object.",
+      "positions": [
+        {
+          "endLine": 218,
+          "file": "/root/src/Master.c",
+          "line": 218,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 491843065,
+            "nextLine": 125,
+            "previousLine": 1789625913
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": "CERT-EXP08-C"
+    }
+  ]
+}
