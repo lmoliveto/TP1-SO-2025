@@ -17,6 +17,7 @@ static char player_names [MAX_PLAYERS][STR_ARG_MAX_SIZE] = { 0 };
 
 static void * get_player_name_addr(int i);
 static void initialize_sems(ShmADT game_sync_ADT);
+static void destroy_sems(ShmADT game_sync_ADT);
 
 
 //<----------------------------------------------------------------------- MAIN ----------------------------------------------------------------------->
@@ -138,6 +139,8 @@ int main(int argc, char * argv[]) {
     
     goodbye(view_pid, &settings);
 
+    destroy_sems(game_sync_ADT);
+
     destroy_shm(settings.game_state_ADT);
     destroy_shm(game_sync_ADT);
 
@@ -154,12 +157,25 @@ static void * get_player_name_addr(int i) {
 static void initialize_sems(ShmADT game_sync_ADT){
     Semaphores * game_sync = (Semaphores *) get_shm_pointer(game_sync_ADT);
 
-    if(  (-1 == sem_init(&game_sync->has_changes,         1 , 0)) || // post -> master | wait -> view
-         (-1 == sem_init(&game_sync->print_done,          1 , 0)) || // wait -> master | post -> view
+    if(  (-1 == sem_init(&game_sync->has_changes,         1 , 0)) ||
+         (-1 == sem_init(&game_sync->print_done,          1 , 0)) ||
          (-1 == sem_init(&game_sync->players_done,        1 , 1)) ||
          (-1 == sem_init(&game_sync->sync_state,          1 , 1)) ||
          (-1 == sem_init(&game_sync->players_count_mutex, 1 , 1))) {
         perror("sem_init");
+        exit(EXIT_FAILURE);
+   }
+}
+
+static void destroy_sems(ShmADT game_sync_ADT){
+    Semaphores * game_sync = (Semaphores *) get_shm_pointer(game_sync_ADT);
+
+    if(  (-1 == sem_destroy(&game_sync->has_changes)) ||
+         (-1 == sem_destroy(&game_sync->print_done)) ||
+         (-1 == sem_destroy(&game_sync->players_done)) ||
+         (-1 == sem_destroy(&game_sync->sync_state)) ||
+         (-1 == sem_destroy(&game_sync->players_count_mutex))) {
+        perror("sem_destroy");
         exit(EXIT_FAILURE);
    }
 }
