@@ -1,0 +1,12 @@
+---
+Language:        Cpp
+BasedOnStyle:  Google
+UseTab: Always
+ColumnLimit: 120
+PenaltyBreakComment: 0
+PenaltyBreakOpenParenthesis: 1
+ReflowComments: false
+IndentWidth: 4
+TabWidth: 4
+...
+

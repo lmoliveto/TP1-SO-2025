@@ -2,7 +2,7 @@
 #include "positions.h"
 
 static int valid_xy(int x, int y, ShmADT game_state_ADT);
-static int is_valid(signed char request, int player_id, int * x, int * y, ShmADT game_state_ADT);
+static int is_valid_move(signed char request, int player_id, int * x, int * y, ShmADT game_state_ADT);
 static void move_to(int x, int y, int player_id, ShmADT game_state_ADT);
 
 void receive_move(int first_p, signed char player_requests[][1], int pipes[MAX_PLAYERS][2], fd_set readfds, ShmADT game_state_ADT){
@@ -30,7 +30,7 @@ void execute_move(int first_p, int * change_found, time_t * exit_timer, signed c
 
     for(int i = first_p, j = 0; j < game_state->player_count && !game_state->finished; j++, i = (i + 1) % game_state->player_count) {
 
-        if (is_valid(player_requests[i][0], i, &new_x, &new_y, game_state_ADT)) {
+        if (is_valid_move(player_requests[i][0], i, &new_x, &new_y, game_state_ADT)) {
             // position saved in new_x, new_y
             move_to(new_x, new_y, i, game_state_ADT);
             *change_found = 1;
@@ -55,7 +55,7 @@ static int valid_xy(int x, int y, ShmADT game_state_ADT){
         game_state->cells[y * game_state->width + x] > 0;
 }
 
-static int is_valid(signed char request, int player_id, int * x, int * y, ShmADT game_state_ADT) {
+static int is_valid_move(signed char request, int player_id, int * x, int * y, ShmADT game_state_ADT) {
     Board * game_state = (Board *) get_shm_pointer(game_state_ADT);
 
     int valid_move = 1, new_x, new_y;

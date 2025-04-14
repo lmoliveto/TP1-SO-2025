@@ -41,4 +41,7 @@ warnings:
 		 -s \
          ./Master -v ./view -p ./player ./player
 
-.PHONY: clean clean_intermediates warnings
+style:
+	@clang-format -i ./**/*.c
+
+.PHONY: clean style warnings
