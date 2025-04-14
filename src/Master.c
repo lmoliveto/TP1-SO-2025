@@ -157,11 +157,17 @@ static void initialize_players(ShmADT game_state_ADT){
 
     for (int i = 0; player_names[i][0] != '\0'; i++, game_state->player_count++) {
         strncpy(game_state->players[i].name, player_names[i], STR_ARG_MAX_SIZE - 1);
-        game_state->players[i].name[strlen(game_state->players[i].name)] = '\0';
+        game_state->players[i].name[strlen(player_names[i])] = '\0';
         game_state->players[i].score = 0;
         game_state->players[i].valid_move_count = 0;
         game_state->players[i].invalid_move_count = 0;
         game_state->players[i].is_blocked = 0;
+    }
+
+    if (game_state->player_count <= 0) {
+        errno = EINVAL;
+        perror("No players specified");
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -182,7 +188,7 @@ static void welcome(Settings * settings){
     printf(ANSI_CLEAR_SCREEN);
     printf("WELCOME TO CHOMPCHAMPS!\n\nGame information\n\twidth -> %d\n\theight -> %d\n\tdelay -> %d\n\ttimeout -> %d\n\tseed -> %ld\n\tview -> %s\n\ttotal players -> %d\n", game_state->width, game_state->height, settings->delay, settings->timeout, settings->seed, settings->view, game_state->player_count);
     for(int i = 0; i < game_state->player_count; i++){
-        printf("\t\t%s%s%s\n",colors[i], game_state->players->name, ANSI_COLOR_RESET);
+        printf("\t\t%s\n", game_state->players[i].name);
     }
     sleep(WELCOME_INFO_TIME);
 }
