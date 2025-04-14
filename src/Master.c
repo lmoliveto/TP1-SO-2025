@@ -2,6 +2,7 @@
 #include "colors.h"
 #include "positions.h"
 #include "spawn_children.h"
+#include "args.h"
 
 //<----------------------------------------------------------------------- EXTERN VARS ----------------------------------------------------------------------->
 
@@ -11,7 +12,6 @@ extern int optind;
 
 //<----------------------------------------------------------------------- PROTOTIPES ----------------------------------------------------------------------->
 
-static void parse_arguments(int argc, char * argv[], Settings * settings);
 static void initialize(Settings * settings, Semaphores * sem);
 static void welcome(Settings * settings);
 static void check_blocked_players(Settings * settings);
@@ -22,14 +22,54 @@ static int valid_xy(int x, int y, Settings * settings);
 static void goodbye(pid_t view_pid, Settings * settings);
 static int is_valid(char request, int player_id, int * x, int * y, Settings *settings);
 static void move_to(int x, int y, int player_id, Settings * settings);
-
+static void * get_player_name_addr(int i);
 
 //<----------------------------------------------------------------------- MAIN ----------------------------------------------------------------------->
 
+char player_names [MAX_PLAYERS][STR_ARG_MAX_SIZE] = { 0 };
+
+static void * get_player_name_addr(int i) {
+    return &player_names[i];
+}
+
 int main(int argc, char * argv[]) {
-    Settings settings;
-    parse_arguments(argc, argv, &settings);
+    // Set default arguments & settings
+    Settings settings = { 0 };
+    settings.seed = time(NULL);
+    settings.delay = DEFAULT_DELAY;
+    settings.timeout = DEFAULT_TIMEOUT;
+    int width_aux = DEFAULT_WIDTH;
+    int height_aux = DEFAULT_HEIGHT;
+    
+    Parameter args[] = {
+        { 'w', ARG_TYPE_INT, &width_aux, NULL },
+        { 'h', ARG_TYPE_INT, &height_aux, NULL },
+        { 'd', ARG_TYPE_INT, &settings.delay, NULL },
+        { 't', ARG_TYPE_INT, &settings.timeout, NULL },
+        { 's', ARG_TYPE_INT, &settings.seed, NULL },
+        { 'v', ARG_TYPE_STRING, &settings.view, NULL },
+        { 'p', ARG_VAR_STRING, NULL, get_player_name_addr }
+    };
+
+    // Parse arguments (args[]) from argv
+    parse_arguments(argc, argv, args, sizeof(args) / sizeof(Parameter), ":w:h:d:t:s:v:p:", STR_ARG_MAX_SIZE);
+    settings.game_state_ADT = create_shm("/game_state", sizeof(Board) + sizeof(int) * width_aux * height_aux, O_RDWR | O_CREAT, 0644, PROT_READ | PROT_WRITE);
     Board * game_state = (Board *) get_shm_pointer(settings.game_state_ADT);
+
+    game_state->width = width_aux;
+    game_state->height = height_aux;
+    game_state->player_count = 0;
+    game_state->finished = 0;
+
+    // Initialize player structs
+    for (int i = 0; player_names[i][0] != '\0'; i++, game_state->player_count++) {
+        strncpy(game_state->players[i].name, player_names[i], STR_ARG_MAX_SIZE - 1);
+        game_state->players[i].name[strlen(game_state->players[i].name)] = '\0';
+        game_state->players[i].score = 0;
+        game_state->players[i].valid_move_count = 0;
+        game_state->players[i].invalid_move_count = 0;
+        game_state->players[i].is_blocked = 0;
+    }
 
     // create SHMs
     // Board * game_state = ... ;// This SHM is created when parsing arguments
@@ -123,7 +163,7 @@ int main(int argc, char * argv[]) {
             game_state->finished = 1;
         }
 
-        if (settings.view != NULL && change_found) { 
+        if (settings.view[0] != '\0' && change_found) { 
             sem_post(&game_sync->has_changes);
             sem_wait(&game_sync->print_done);
         }
@@ -153,107 +193,6 @@ int main(int argc, char * argv[]) {
 
 //<----------------------------------------------------------------------- FUNCTIONS ----------------------------------------------------------------------->
 
-static void parse_arguments(int argc, char * argv[], Settings * settings) {
-    int width = DEFAULT_WIDTH;
-    int height = DEFAULT_HEIGHT;
-    int delay = DEFAULT_DELAY;
-    int timeout = DEFAULT_TIMEOUT;
-    int seed = time(NULL);
-    char * view_name = NULL;
-    int p_index = -1; // "-p" index within argv
-    int n_index = -1; // next non player argv
-
-    char c;
-    opterr = 0; // https://stackoverflow.com/a/24331449
-    optind = 0;
-    while ((c = getopt(argc, argv, ":w:h:d:t:s:v:p:")) != -1 && c != ((unsigned char) -1) ) {
-        switch (c) {
-            case 'w':
-                if (optarg == NULL) break;
-                width = atoi(optarg);
-                if (width < MIN_WIDTH) {
-                    perror("invalid width");
-                    exit(EXIT_FAILURE);
-                }
-                break;
-            case 'h':
-                if (optarg == NULL) break;
-                height = atoi(optarg);
-                if (height < MIN_HEIGHT) {
-                    perror("invalid height");
-                    exit(EXIT_FAILURE);
-                }
-                break;
-            case 'd':
-                if (optarg == NULL) break;
-                delay = atoi(optarg);
-                break;
-            case 't':
-                if (optarg == NULL) break;
-                timeout = atoi(optarg);
-                break;
-            case 's':
-                if (optarg == NULL) break;
-                seed = atoi(optarg);
-                break;
-            case 'v':
-                view_name = optarg;
-                break;
-            case 'p':
-                p_index = optind;
-                int i = optind;
-                for (; optind < argc && strchr(argv[optind], '-') == 0; optind++) ;
-
-                n_index = optind;
-
-                if (optind - i + 1 < MIN_PLAYERS) {
-                    errno = EINVAL;
-                    perror("too few players");
-                    exit(EXIT_FAILURE);
-                }
-
-                if (optind - i + 1 > MAX_PLAYERS) {
-                    errno = EINVAL;
-                    perror("too many players");
-                    exit(EXIT_FAILURE);
-                }
-
-                break ;
-            default:
-                break;
-        }
-    }
-
-    if (p_index == -1) {
-        errno = EINVAL;
-        perror("no players");
-        exit(EXIT_FAILURE);
-    }
-
-    // Create game state shm
-    ShmADT game_state_ADT = create_shm("/game_state", sizeof(Board) + sizeof(int) * width * height,  O_RDWR | O_CREAT, 0644, PROT_READ | PROT_WRITE);
-    Board * game_state = (Board *) get_shm_pointer(game_state_ADT);
-
-    game_state->player_count = 0;
-    for (int index = p_index - 1; index < n_index && index < argc; index++) {
-        strcpy(game_state->players[game_state->player_count].name, argv[index]);
-        game_state->players[game_state->player_count].name[strlen(argv[index])] = 0;
-        game_state->players[game_state->player_count].score = 0;
-        game_state->players[game_state->player_count].invalid_move_count = 0;
-        game_state->players[game_state->player_count].valid_move_count = 0;
-        game_state->players[game_state->player_count].is_blocked = 0;
-        game_state->player_count++;
-    }
-
-    settings->game_state_ADT = game_state_ADT;
-    game_state->width = width;
-    game_state->height = height;
-    game_state->finished = 0;
-    settings->delay = delay;
-    settings->timeout = timeout;
-    settings->seed = seed;
-    settings->view = view_name;
-}
 
 static void initialize(Settings * settings, Semaphores * sem){
     if(  (-1 == sem_init(&sem->has_changes,         1 , 0)) || // post -> master | wait -> view

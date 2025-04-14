@@ -31,6 +31,7 @@
 #define MIN_HEIGHT 10
 #define MIN_PLAYERS 1
 #define MAX_PLAYERS 9
+#define STR_ARG_MAX_SIZE 16
 #define DIM_BUFFER 10
 #define WELCOME_INFO_TIME 3
 
@@ -40,7 +41,7 @@
 // <----------------------------------------------------------------------- STRUCTS ----------------------------------------------------------------------->
 
 typedef struct {
-    char name[16]; // Nombre del jugador
+    char name[STR_ARG_MAX_SIZE]; // Nombre del jugador
     unsigned int score; // Puntaje
     unsigned int invalid_move_count; // Cantidad de solicitudes de movimientos inválidos realizados
     unsigned int valid_move_count; // Cantidad de solicitudes de movimientos válidas realizadas
@@ -72,7 +73,7 @@ typedef struct {
     unsigned int delay; // Milisegundos que espera el máster cada vez que se imprime el estado
     unsigned int timeout; // Segundos para recibir solicitudes de movimientos válidos
     time_t seed; // Semilla utilizada para la generación del tablero
-    char * view; // Ruta del binario de la vista
+    char view[STR_ARG_MAX_SIZE]; // Ruta del binario de la vista
 } Settings;
 
 #endif
