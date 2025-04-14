@@ -24,9 +24,8 @@ static void initialize_sems(ShmADT game_sync_ADT);
 int main(int argc, char * argv[]) {
     // Set default arguments & settings
     Settings settings = { 0 };
-    settings.seed = time(NULL);
-    settings.delay = DEFAULT_DELAY;
-    settings.timeout = DEFAULT_TIMEOUT;
+    set_settings(&settings);
+
     int width_aux = DEFAULT_WIDTH;
     int height_aux = DEFAULT_HEIGHT;
     

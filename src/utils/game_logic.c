@@ -4,6 +4,12 @@ extern const char * colors[];
 
 static void break_the_tie_by_min(Board * game_state, char winners[], int winners_count, int * first_winner);
 
+void set_settings(Settings * settings){
+    settings->seed = time(NULL);
+    settings->delay = DEFAULT_DELAY;
+    settings->timeout = DEFAULT_TIMEOUT;
+}
+
 void initialize_players(ShmADT game_state_ADT, char player_names [MAX_PLAYERS][STR_ARG_MAX_SIZE]){
     Board * game_state = (Board *) get_shm_pointer(game_state_ADT);
 
