@@ -1,4 +1,3 @@
-#include "shm.h"
 #include "constants.h"
 #include "colors.h"
 #include "positions.h"
@@ -18,7 +17,7 @@ static void welcome(Settings * settings);
 static void check_blocked_players(Settings * settings);
 static int get_max_readfd(int total, int pipes[MAX_PLAYERS][2]);
 static void verify_fds(int max_fd, fd_set * set, int pipes[MAX_PLAYERS][2]);
-static void intialize_board(Board * game_state);
+static void intialize_board(ShmADT game_state_ADT);
 static int valid_xy(int x, int y, Settings * settings);
 static void goodbye(pid_t view_pid, Settings * settings);
 static int is_valid(char request, int player_id, int * x, int * y, Settings *settings);
@@ -30,16 +29,18 @@ static void move_to(int x, int y, int player_id, Settings * settings);
 int main(int argc, char * argv[]) {
     Settings settings;
     parse_arguments(argc, argv, &settings);
+    Board * game_state = (Board *) get_shm_pointer(settings.game_state_ADT);
 
     // create SHMs
     // Board * game_state = ... ;// This SHM is created when parsing arguments
-    Semaphores * game_sync = (Semaphores *) accessSHM("/game_sync", sizeof(Semaphores),  O_RDWR | O_CREAT, 0644, PROT_READ | PROT_WRITE);
+    ShmADT game_sync_ADT = create_shm("/game_sync", sizeof(Semaphores),  O_RDWR | O_CREAT, 0644, PROT_READ | PROT_WRITE);
+    Semaphores * game_sync = (Semaphores *) get_shm_pointer(game_sync_ADT);
     
     initialize(&settings, game_sync);
 
     srandom(settings.seed);
 
-    intialize_board(settings.game_state);
+    intialize_board(settings.game_state_ADT);
 
     welcome(&settings); 
 
@@ -49,12 +50,12 @@ int main(int argc, char * argv[]) {
     pid_t view_pid;
     char width[DIM_BUFFER];
     char height[DIM_BUFFER];
-    snprintf(width, DIM_BUFFER, "%d", settings.game_state->width); //todo hace falta chequear el retorno?
-    snprintf(height, DIM_BUFFER, "%d", settings.game_state->height); //todo hace falta chequear el retorno?
+    snprintf(width, DIM_BUFFER, "%d", game_state->width); //todo hace falta chequear el retorno?
+    snprintf(height, DIM_BUFFER, "%d", game_state->height); //todo hace falta chequear el retorno?
 
-    for(int i = 0; i < settings.game_state->player_count; i++){
-        char * args[] = { settings.game_state->players[i].name, width, height, NULL };
-        spawn_child_pipes(pipes[i], &settings.game_state->players[i].pid, args);
+    for(int i = 0; i < game_state->player_count; i++){
+        char * args[] = { game_state->players[i].name, width, height, NULL };
+        spawn_child_pipes(pipes[i], &game_state->players[i].pid, args);
     }
 
     char * view_args[] = { settings.view, width, height, NULL };
@@ -65,19 +66,19 @@ int main(int argc, char * argv[]) {
     fd_set readfds;
     FD_ZERO(&readfds);
 
-    char player_requests[settings.game_state->player_count][1];
+    char player_requests[game_state->player_count][1];
     int first_p, can_move;
     time_t exit_timer = time(NULL);
     int i , j, adjacent_x, adjacent_y, new_x, new_y, change_found = 0;
 
-    while (!settings.game_state->finished) {
-        first_p = (random() % (settings.game_state->player_count));
+    while (!game_state->finished) {
+        first_p = (random() % (game_state->player_count));
 
-        verify_fds(settings.game_state->player_count, &readfds, pipes);
+        verify_fds(game_state->player_count, &readfds, pipes);
        
         //========================================= receive move ========================================= // 
-        for(i = first_p, j = 0; j < settings.game_state->player_count && !settings.game_state->finished; j++, i = (i + 1) % settings.game_state->player_count) {
-            if( FD_ISSET(pipes[i][R_END], &readfds) && !settings.game_state->players[i].is_blocked ) {
+        for(i = first_p, j = 0; j < game_state->player_count && !game_state->finished; j++, i = (i + 1) % game_state->player_count) {
+            if( FD_ISSET(pipes[i][R_END], &readfds) && !game_state->players[i].is_blocked ) {
 
                 int total_read = read(pipes[i][R_END], player_requests[i], sizeof(player_requests[i]));
                 if (total_read == -1) {
@@ -95,7 +96,7 @@ int main(int argc, char * argv[]) {
         sem_post(&game_sync->players_done);
 
         //========================================= execute move ========================================= //
-        for(i = first_p, j = 0; j < settings.game_state->player_count && !settings.game_state->finished; j++, i = (i + 1) % settings.game_state->player_count) {
+        for(i = first_p, j = 0; j < game_state->player_count && !game_state->finished; j++, i = (i + 1) % game_state->player_count) {
 
             if (is_valid(player_requests[i][0], i, &new_x, &new_y, &settings)) {
                 // position saved in new_x, new_y
@@ -105,11 +106,11 @@ int main(int argc, char * argv[]) {
             } else { //given an invalid move, check whether the player has any valid moves left
                 can_move = 0;
                 for(int k = 0 ; k < DIR_NUM && !can_move; k++){
-                    adjacent_x = settings.game_state->players[i].x_pos + Positions[k][0];
-                    adjacent_y = settings.game_state->players[i].y_pos + Positions[k][1];
+                    adjacent_x = game_state->players[i].x_pos + Positions[k][0];
+                    adjacent_y = game_state->players[i].y_pos + Positions[k][1];
                     can_move = valid_xy(adjacent_x, adjacent_y, &settings);
                 }
-                settings.game_state->players[i].is_blocked |= !can_move;
+                game_state->players[i].is_blocked |= !can_move;
             }
         }
         //================================================================================================//
@@ -119,7 +120,7 @@ int main(int argc, char * argv[]) {
         sem_post(&game_sync->sync_state);
 
         if(time(NULL) - exit_timer >= settings.timeout){
-            settings.game_state->finished = 1;
+            game_state->finished = 1;
         }
 
         if (settings.view != NULL && change_found) { 
@@ -129,19 +130,22 @@ int main(int argc, char * argv[]) {
 
         usleep(settings.delay * 1000);
 
-        if(!settings.game_state->finished){
+        if(!game_state->finished){
             check_blocked_players(&settings);
-            if(settings.game_state->finished){
+            if(game_state->finished){
                 sem_post(&game_sync->has_changes);
             }
         }
     }
 
-    for(int i = 0; i < settings.game_state->player_count; i++){
+    for(int i = 0; i < game_state->player_count; i++){
         close(pipes[i][R_END]);
     }
     
     goodbye(view_pid, &settings);
+
+    destroy_shm(settings.game_state_ADT);
+    destroy_shm(game_sync_ADT);
 
     return 0;
 }
@@ -227,12 +231,8 @@ static void parse_arguments(int argc, char * argv[], Settings * settings) {
     }
 
     // Create game state shm
-    Board * game_state = (Board *) accessSHM("/game_state", sizeof(Board) + sizeof(int) * width * height,  O_RDWR | O_CREAT, 0644, PROT_READ | PROT_WRITE);
-
-    if(game_state == NULL) {
-        perror("malloc");
-        exit(EXIT_FAILURE);
-    }
+    ShmADT game_state_ADT = create_shm("/game_state", sizeof(Board) + sizeof(int) * width * height,  O_RDWR | O_CREAT, 0644, PROT_READ | PROT_WRITE);
+    Board * game_state = (Board *) get_shm_pointer(game_state_ADT);
 
     game_state->player_count = 0;
     for (int index = p_index - 1; index < n_index && index < argc; index++) {
@@ -245,10 +245,10 @@ static void parse_arguments(int argc, char * argv[], Settings * settings) {
         game_state->player_count++;
     }
 
-    settings->game_state = game_state;
-    settings->game_state->width = width;
-    settings->game_state->height = height;
-    settings->game_state->finished = 0;
+    settings->game_state_ADT = game_state_ADT;
+    game_state->width = width;
+    game_state->height = height;
+    game_state->finished = 0;
     settings->delay = delay;
     settings->timeout = timeout;
     settings->seed = seed;
@@ -267,22 +267,26 @@ static void initialize(Settings * settings, Semaphores * sem){
 }
 
 static void welcome(Settings * settings){
+    Board * game_state = (Board *) get_shm_pointer(settings->game_state_ADT);
+
     printf(ANSI_CLEAR_SCREEN);
-    printf("WELCOME TO CHOMPCHAMPS!\n\nGame information\n\twidth -> %d\n\theight -> %d\n\tdelay -> %d\n\ttimeout -> %d\n\tseed -> %ld\n\tview -> %s\n\ttotal players -> %d\n", settings->game_state->width, settings->game_state->height, settings->delay, settings->timeout, settings->seed, settings->view, settings->game_state->player_count);
-    for(int i = 0; i < settings->game_state->player_count; i++){
-        printf("\t\t%s%s%s\n", colors[i], settings->game_state->players[i].name, ANSI_COLOR_RESET);
+    printf("WELCOME TO CHOMPCHAMPS!\n\nGame information\n\twidth -> %d\n\theight -> %d\n\tdelay -> %d\n\ttimeout -> %d\n\tseed -> %ld\n\tview -> %s\n\ttotal players -> %d\n", game_state->width, game_state->height, settings->delay, settings->timeout, settings->seed, settings->view, game_state->player_count);
+    for(int i = 0; i < game_state->player_count; i++){
+        printf("\t\t%s\n", game_state->players->name);
     }
     sleep(WELCOME_INFO_TIME);
 }
 
 static void check_blocked_players(Settings * settings){
+    Board * game_state = (Board *) get_shm_pointer(settings->game_state_ADT);
+
     int found_unblocked_player = 0;
 
-    for(int i = 0; i < settings->game_state->player_count && !settings->game_state->finished && !found_unblocked_player; i++){
-        found_unblocked_player |= !settings->game_state->players[i].is_blocked;
+    for(int i = 0; i < game_state->player_count && !game_state->finished && !found_unblocked_player; i++){
+        found_unblocked_player |= !game_state->players[i].is_blocked;
     }
     if(!found_unblocked_player){
-        settings->game_state->finished = 1;
+        game_state->finished = 1;
     }
 }
 
@@ -339,7 +343,9 @@ static void verify_fds(int player_count, fd_set * set, int pipes[MAX_PLAYERS][2]
     }
 };
 
-static void intialize_board(Board * game_state){
+static void intialize_board(ShmADT game_state_ADT){
+    Board * game_state = (Board *) get_shm_pointer(game_state_ADT);
+
     for(int i = 0; i < game_state->width * game_state->height; i++){
         game_state->cells[i] = 1 + random() % 9;
     }
@@ -361,12 +367,16 @@ static void intialize_board(Board * game_state){
 }
 
 static int valid_xy(int x, int y, Settings * settings){
+    Board * game_state = (Board *) get_shm_pointer(settings->game_state_ADT);
+
     return x >= 0 && y >= 0 && 
-        x < settings->game_state->width && y < settings->game_state->height &&
-        settings->game_state->cells[y * settings->game_state->width + x] > 0;
+        x < game_state->width && y < game_state->height &&
+        game_state->cells[y * game_state->width + x] > 0;
 }
 
 static void goodbye(pid_t view_pid, Settings * settings){
+    Board * game_state = (Board *) get_shm_pointer(settings->game_state_ADT);
+
     int status;
     pid_t waited_pid = waitpid(view_pid, &status, 0);
 
@@ -381,8 +391,8 @@ static void goodbye(pid_t view_pid, Settings * settings){
         printf("\nChild %d did not terminate normally\n", waited_pid);
     }
 
-    for(int i = 0; i < settings->game_state->player_count; i++){
-        waited_pid = waitpid(settings->game_state->players[i].pid, &status, 0);
+    for(int i = 0; i < game_state->player_count; i++){
+        waited_pid = waitpid(game_state->players[i].pid, &status, 0);
 
         if(waited_pid == -1){
             perror("waitpid failed");
@@ -391,27 +401,29 @@ static void goodbye(pid_t view_pid, Settings * settings){
     
         if(WIFEXITED(status)){
             printf("%sPlayer %s (%d) exited (%d) with:\n\tscore of %d\n\t%d valid moves done\n\t%d invalid moves done%s\n", 
-                colors[i], settings->game_state->players[i].name, i, status, settings->game_state->players[i].score, settings->game_state->players[i].valid_move_count, settings->game_state->players[i].invalid_move_count, ANSI_COLOR_RESET);
+                colors[i], game_state->players[i].name, i, status, game_state->players[i].score, game_state->players[i].valid_move_count, game_state->players[i].invalid_move_count, ANSI_COLOR_RESET);
         } else {
-            printf("Player %s (%d) did not terminate normally\n", settings->game_state->players[i].name, i);
+            printf("Player %s (%d) did not terminate normally\n", game_state->players[i].name, i);
         }
     }
 }
 
 static int is_valid(char request, int player_id, int * x, int * y, Settings *settings) {
+    Board * game_state = (Board *) get_shm_pointer(settings->game_state_ADT);
+
     int valid_move = 1, new_x, new_y;
     
     if (request < 0 || request > 7) {
-        settings->game_state->players[player_id].invalid_move_count++;
+        game_state->players[player_id].invalid_move_count++;
         valid_move = 0;
     } else {
-        new_x = settings->game_state->players[player_id].x_pos + Positions[(int)request][0];
-        new_y = settings->game_state->players[player_id].y_pos + Positions[(int)request][1];
+        new_x = game_state->players[player_id].x_pos + Positions[(int)request][0];
+        new_y = game_state->players[player_id].y_pos + Positions[(int)request][1];
     }
 
     
     if (valid_move && !valid_xy(new_x, new_y, settings)) {
-        settings->game_state->players[player_id].invalid_move_count++;
+        game_state->players[player_id].invalid_move_count++;
         valid_move = 0;
     } else {
         *x= new_x;
@@ -422,11 +434,13 @@ static int is_valid(char request, int player_id, int * x, int * y, Settings *set
 }
 
 static void move_to(int x, int y, int player_id, Settings * settings) {
-    settings->game_state->players[player_id].valid_move_count++;
-    settings->game_state->players[player_id].x_pos = x;
-    settings->game_state->players[player_id].y_pos = y;
+    Board * game_state = (Board *) get_shm_pointer(settings->game_state_ADT);
 
-    int coord = x + y * settings->game_state->width;
-    settings->game_state->players[player_id].score += settings->game_state->cells[coord];
-    settings->game_state->cells[coord] = -player_id;
+    game_state->players[player_id].valid_move_count++;
+    game_state->players[player_id].x_pos = x;
+    game_state->players[player_id].y_pos = y;
+
+    int coord = x + y * game_state->width;
+    game_state->players[player_id].score += game_state->cells[coord];
+    game_state->cells[coord] = -player_id;
 }

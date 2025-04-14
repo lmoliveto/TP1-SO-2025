@@ -17,6 +17,7 @@
 #include <math.h>
 #include <stddef.h>
 #include <ctype.h>
+#include "shmADT.h"
 
 // <----------------------------------------------------------------------- DEFINES ----------------------------------------------------------------------->
 
@@ -67,7 +68,7 @@ typedef struct {
 } Semaphores;
 
 typedef struct {
-    Board * game_state;
+    ShmADT game_state_ADT;
     unsigned int delay; // Milisegundos que espera el máster cada vez que se imprime el estado
     unsigned int timeout; // Segundos para recibir solicitudes de movimientos válidos
     time_t seed; // Semilla utilizada para la generación del tablero
