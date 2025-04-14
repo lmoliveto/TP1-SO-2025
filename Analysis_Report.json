@@ -2,50 +2,73 @@
   "version": 2,
   "warnings": [
     {
-      "code": "V647",
-      "cwe": 587,
+      "code": "V609",
+      "cwe": 369,
       "falseAlarm": false,
       "favorite": false,
       "level": 1,
-      "message": "The value of 'int' type is assigned to the pointer of 'int' type. Consider inspecting the assignment: 'first_winner = i'.",
+      "message": "Mod by zero. Denominator 'game_state->player_count' == 0.",
       "positions": [
         {
-          "endLine": 394,
+          "endLine": 105,
           "file": "/root/src/Master.c",
-          "line": 394,
+          "line": 105,
           "navigation": {
             "columns": 0,
-            "currentLine": 1123869,
-            "nextLine": 2660469,
-            "previousLine": 1741430717
+            "currentLine": -1386358239,
+            "nextLine": 0,
+            "previousLine": 1034584628
           }
         }
       ],
       "projects": [],
-      "sastId": "CERT-INT36-C"
+      "sastId": "CERT-INT33-C"
     },
     {
-      "code": "V647",
-      "cwe": 587,
+      "code": "V621",
+      "cwe": 835,
       "falseAlarm": false,
       "favorite": false,
       "level": 1,
-      "message": "The value of 'int' type is assigned to the pointer of 'int' type. Consider inspecting the assignment: 'first_winner = i'.",
+      "message": "Consider inspecting the 'for' operator. It's possible that the loop will be executed incorrectly or won't be executed at all.",
       "positions": [
         {
-          "endLine": 409,
+          "endLine": 86,
           "file": "/root/src/Master.c",
-          "line": 409,
+          "line": 86,
           "navigation": {
             "columns": 0,
-            "currentLine": 1123869,
-            "nextLine": 2660469,
-            "previousLine": -414583820
+            "currentLine": 1789625913,
+            "nextLine": 1941193045,
+            "previousLine": 0
           }
         }
       ],
       "projects": [],
-      "sastId": "CERT-INT36-C"
+      "sastId": "CERT-MSC21-C"
+    },
+    {
+      "code": "V621",
+      "cwe": 835,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 1,
+      "message": "Consider inspecting the 'for' operator. It's possible that the loop will be executed incorrectly or won't be executed at all.",
+      "positions": [
+        {
+          "endLine": 139,
+          "file": "/root/src/Master.c",
+          "line": 139,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 1789625913,
+            "nextLine": 297581757,
+            "previousLine": 0
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": "CERT-MSC21-C"
     },
     {
       "code": "V692",
@@ -56,9 +79,9 @@
       "message": "An inappropriate attempt to append a null character to a string. To determine the length of a string by 'strlen' function correctly, a string ending with a null terminator should be used in the first place.",
       "positions": [
         {
-          "endLine": 71,
+          "endLine": 163,
           "file": "/root/src/Master.c",
-          "line": 71,
+          "line": 163,
           "navigation": {
             "columns": 0,
             "currentLine": -27768398,
@@ -79,9 +102,9 @@
       "message": "Expression 'game_state->finished' is always false.",
       "positions": [
         {
-          "endLine": 179,
+          "endLine": 133,
           "file": "/root/src/Master.c",
-          "line": 179,
+          "line": 133,
           "navigation": {
             "columns": 0,
             "currentLine": 1491763761,
@@ -94,98 +117,6 @@
       "sastId": ""
     },
     {
-      "code": "V560",
-      "cwe": 571,
-      "falseAlarm": false,
-      "favorite": false,
-      "level": 2,
-      "message": "A part of conditional expression is always true: !game_state->finished.",
-      "positions": [
-        {
-          "endLine": 124,
-          "file": "/root/src/Master.c",
-          "line": 124,
-          "navigation": {
-            "columns": 0,
-            "currentLine": 437313061,
-            "nextLine": 2051413646,
-            "previousLine": -254226449
-          }
-        }
-      ],
-      "projects": [],
-      "sastId": ""
-    },
-    {
-      "code": "V560",
-      "cwe": 571,
-      "falseAlarm": false,
-      "favorite": false,
-      "level": 2,
-      "message": "A part of conditional expression is always true: !game_state->finished.",
-      "positions": [
-        {
-          "endLine": 143,
-          "file": "/root/src/Master.c",
-          "line": 143,
-          "navigation": {
-            "columns": 0,
-            "currentLine": 437313061,
-            "nextLine": 0,
-            "previousLine": -201666577
-          }
-        }
-      ],
-      "projects": [],
-      "sastId": ""
-    },
-    {
-      "code": "V601",
-      "cwe": 704,
-      "falseAlarm": false,
-      "favorite": false,
-      "level": 2,
-      "message": "Pointer is implicitly cast to an integer type.",
-      "positions": [
-        {
-          "endLine": 387,
-          "file": "/root/src/Master.c",
-          "line": 387,
-          "navigation": {
-            "columns": 0,
-            "currentLine": 1288967147,
-            "nextLine": 1297284922,
-            "previousLine": 0
-          }
-        }
-      ],
-      "projects": [],
-      "sastId": "CERT-INT36-C"
-    },
-    {
-      "code": "V601",
-      "cwe": 704,
-      "falseAlarm": false,
-      "favorite": false,
-      "level": 2,
-      "message": "Pointer is implicitly cast to an integer type.",
-      "positions": [
-        {
-          "endLine": 402,
-          "file": "/root/src/Master.c",
-          "line": 402,
-          "navigation": {
-            "columns": 0,
-            "currentLine": 1288967147,
-            "nextLine": 917628482,
-            "previousLine": 0
-          }
-        }
-      ],
-      "projects": [],
-      "sastId": "CERT-INT36-C"
-    },
-    {
       "code": "V619",
       "cwe": 480,
       "falseAlarm": false,
@@ -194,9 +125,9 @@
       "message": "The array 'game_state->players' is being utilized as a pointer to single object.",
       "positions": [
         {
-          "endLine": 218,
+          "endLine": 188,
           "file": "/root/src/Master.c",
-          "line": 218,
+          "line": 188,
           "navigation": {
             "columns": 0,
             "currentLine": 491843065,
@@ -207,6 +138,98 @@
       ],
       "projects": [],
       "sastId": "CERT-EXP08-C"
+    },
+    {
+      "code": "V009",
+      "cwe": 0,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 0,
+      "message": "To use free version of PVS-Studio, source code files are required to start with a special comment.",
+      "positions": [
+        {
+          "endLine": 1,
+          "file": "/root/src/utils/args.c",
+          "line": 1,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 0,
+            "nextLine": 0,
+            "previousLine": 0
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": ""
+    },
+    {
+      "code": "V009",
+      "cwe": 0,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 0,
+      "message": "To use free version of PVS-Studio, source code files are required to start with a special comment.",
+      "positions": [
+        {
+          "endLine": 1,
+          "file": "/root/src/utils/moves.c",
+          "line": 1,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 0,
+            "nextLine": 0,
+            "previousLine": 0
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": ""
+    },
+    {
+      "code": "V009",
+      "cwe": 0,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 0,
+      "message": "To use free version of PVS-Studio, source code files are required to start with a special comment.",
+      "positions": [
+        {
+          "endLine": 1,
+          "file": "/root/src/utils/shmADT.c",
+          "line": 1,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 0,
+            "nextLine": 0,
+            "previousLine": 0
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": ""
+    },
+    {
+      "code": "V009",
+      "cwe": 0,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 0,
+      "message": "To use free version of PVS-Studio, source code files are required to start with a special comment.",
+      "positions": [
+        {
+          "endLine": 1,
+          "file": "/root/src/utils/spawn_players.c",
+          "line": 1,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 0,
+            "nextLine": 0,
+            "previousLine": 0
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": ""
     }
   ]
 }
