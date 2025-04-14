@@ -9,7 +9,7 @@
 
 extern int opterr;
 extern int optind;
-static char player_names[MAX_PLAYERS][STR_ARG_MAX_SIZE] = {0};
+static char player_names[MAX_PLAYERS + 1][STR_ARG_MAX_SIZE] = {0};
 
 //<----------------------------------------------------------------------- PROTOTIPES ----------------------------------------------------------------------->
 
