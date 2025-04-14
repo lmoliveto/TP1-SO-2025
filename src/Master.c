@@ -106,7 +106,7 @@ int main(int argc, char * argv[]) {
     fd_set readfds;
     FD_ZERO(&readfds);
 
-    char player_requests[game_state->player_count][1];
+    char player_requests[MAX_PLAYERS][1] = { 0 };
     int first_p, can_move;
     time_t exit_timer = time(NULL);
     int i , j, adjacent_x, adjacent_y, new_x, new_y, change_found = 0;
