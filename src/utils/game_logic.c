@@ -10,7 +10,7 @@ void set_settings(Settings * settings){
     settings->timeout = DEFAULT_TIMEOUT;
 }
 
-void initialize_players(ShmADT game_state_ADT, char player_names [MAX_PLAYERS][STR_ARG_MAX_SIZE]){
+void initialize_players(ShmADT game_state_ADT, char player_names[MAX_PLAYERS + 1][STR_ARG_MAX_SIZE]){
     Board * game_state = (Board *) get_shm_pointer(game_state_ADT);
 
     for (int i = 0; player_names[i][0] != '\0'; i++, game_state->player_count++) {

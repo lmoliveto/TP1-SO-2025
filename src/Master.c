@@ -145,7 +145,14 @@ int main(int argc, char *argv[]) {
 
 //<----------------------------------------------------------------------- FUNCTIONS ----------------------------------------------------------------------->
 
-static void *get_player_name_addr(int i) { return &player_names[i]; }
+static void *get_player_name_addr(int i) {
+	if (i >= MAX_PLAYERS) {
+		errno = EINVAL;
+		perror("get_player_name_addr: Too many players");
+		exit(EXIT_FAILURE);
+	}
+	return &player_names[i];
+}
 
 static void initialize_sems(ShmADT game_sync_ADT) {
 	Semaphores *game_sync = (Semaphores *)get_shm_pointer(game_sync_ADT);
