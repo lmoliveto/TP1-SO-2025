@@ -7,6 +7,7 @@ UTILS_OBJ=$(UTILS:.c=.o)
 CC=gcc
 GCC_ASAN_PRELOAD=$(shell gcc -print-file-name=libasan.so)
 CFLAGS=-Wall -g -std=c99 -fsanitize=address -D_XOPEN_SOURCE=500 -I"src/headers"
+VALGRIND_CFLAGS=$(filter-out -fsanitize=address, $(CFLAGS))
 LFLAGS=-lm
 
 STRATEGIES := alpha up neighb
@@ -24,18 +25,14 @@ $(UTILS_OBJ) : %.o : %.c
 player_%: ./src/player.c $(UTILS_OBJ)
 	$(CC) $(CFLAGS) $< $(UTILS_OBJ) -o $@ -DSTRATEGY_`echo $* | tr '[:lower:]' '[:upper:]'` $(LFLAGS)
 
-clean: clean_intermediates
-	@rm $(notdir $(EXES)) $(STRATEGY_TARGETS) &> /dev/null || true
-
-clean_intermediates:
-	@rm -r ./*.dSYM > /dev/null 2>/dev/null || true
-	@rm -r ./**/*.dSYM > /dev/null 2>/dev/null || true
-	@rm ./**/*.o > /dev/null 2>/dev/null || true
-	@rm ./src/**/*.o > /dev/null 2>/dev/null || true
+clean:
+	@find . -name "*.dSYM" -type d -exec rm -r {} + 2>/dev/null || true
+	@find . -name "*.o" -type f -exec rm {} + 2>/dev/null || true
+	@rm $(notdir $(EXES)) $(STRATEGY_TARGETS) 2>/dev/null || true
 
 warnings:
-# @FILE="./Master" && \
-# GCC_ASAN_PRELOAD=`gcc -print-file-name=libasan.so`
+	@make clean --no-print-directory
+	@make CFLAGS="$(VALGRIND_CFLAGS)" all --no-print-directory
 	
 	@valgrind --leak-check=full \
          --show-leak-kinds=all \
