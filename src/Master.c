@@ -99,6 +99,16 @@ int main(int argc, char *argv[]) {
 
 		verify_fds(game_state->player_count, &readfds, pipes, settings.timeout);
 
+		for (int i = 0; i < game_state->player_count; i++) {
+			if (game_state->players[i].pid != -1) {
+				int status;
+				int wait_pid = waitpid(game_state->players[i].pid, &status, WNOHANG);
+				if (WIFEXITED(status) && wait_pid != -1) {
+					game_state->players[i].pid = -1;
+				}
+			}
+		}
+
 		receive_move(first_p, player_requests, pipes, readfds, settings.game_state_ADT);
 
 		sem_wait(&game_sync->players_done);
@@ -114,11 +124,11 @@ int main(int argc, char *argv[]) {
 			game_state->finished = 1;
 		}
 
-		if (settings.view[0] != '\0') {
+		if (settings.view[0] != '\0' && view_pid != -1) {
 			sem_post(&game_sync->has_changes);
 			sem_wait(&game_sync->print_done);
 		}
-
+		
 		usleep(settings.delay * 1000);
 
 		if (!game_state->finished) {

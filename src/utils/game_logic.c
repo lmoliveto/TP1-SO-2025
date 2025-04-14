@@ -74,11 +74,15 @@ void goodbye(pid_t view_pid, Settings * settings){
     Board * game_state = (Board *) get_shm_pointer(settings->game_state_ADT);
 
     int status;
-    pid_t waited_pid = waitpid(view_pid, &status, 0);
-
-    if(waited_pid == -1){
-        perror("waitpid failed");
-        exit(EXIT_FAILURE);
+    pid_t waited_pid;
+    
+    if (view_pid != -1) {
+        waited_pid = waitpid(view_pid, &status, 0);
+    
+        if(waited_pid == -1){
+            perror("waitpid failed1");
+            exit(EXIT_FAILURE);
+        }
     }
 
     if(WIFEXITED(status)){
@@ -92,14 +96,16 @@ void goodbye(pid_t view_pid, Settings * settings){
     unsigned int max_score = 0;
 
     for(int i = 0; i < game_state->player_count; i++){
-        waited_pid = waitpid(game_state->players[i].pid, &status, 0);
+        if (game_state->players[i].pid != -1){
+            waited_pid = waitpid(game_state->players[i].pid, &status, 0);
 
-        if(waited_pid == -1){
-            perror("waitpid failed");
-            exit(EXIT_FAILURE);
+            if(waited_pid == -1){
+                perror("waitpid failed");
+                exit(EXIT_FAILURE);
+            }
         }
-    
-        if(WIFEXITED(status)){
+
+        if(WIFEXITED(status) || game_state->players[i].pid == -1){
             // define winners by score
             if(game_state->players[i].score > max_score){
                 for(int j = 0; j < i; j++){

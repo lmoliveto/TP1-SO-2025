@@ -9,7 +9,6 @@ void spawn_child(pid_t * child_pid, char * args[]) {
 
     if(current_pid == 0){
         execve(args[0], args, NULL); // <- sets errno on failure
-        *child_pid = -1;
         perror("execve");
         exit(EXIT_FAILURE);
     }

@@ -30,18 +30,20 @@ void execute_move(int first_p, time_t * exit_timer, signed char player_requests[
 
     for(int i = first_p, j = 0; j < game_state->player_count && !game_state->finished; j++, i = (i + 1) % game_state->player_count) {
 
-        if (is_valid_move(player_requests[i][0], i, &new_x, &new_y, game_state_ADT)) {
-            // position saved in new_x, new_y
-            move_to(new_x, new_y, i, game_state_ADT);
-            *exit_timer = time(NULL);
-        } else { //given an invalid move, check whether the player has any valid moves left
-            can_move = 0;
-            for(int k = 0 ; k < DIR_NUM && !can_move; k++){
-                adjacent_x = game_state->players[i].x_pos + Positions[k][0];
-                adjacent_y = game_state->players[i].y_pos + Positions[k][1];
-                can_move = valid_xy(adjacent_x, adjacent_y, game_state_ADT);
+        if(game_state->players[i].pid != -1) {
+            if (is_valid_move(player_requests[i][0], i, &new_x, &new_y, game_state_ADT)) {
+                // position saved in new_x, new_y
+                move_to(new_x, new_y, i, game_state_ADT);
+                *exit_timer = time(NULL);
+            } else { //given an invalid move, check whether the player has any valid moves left
+                can_move = 0;
+                for(int k = 0 ; k < DIR_NUM && !can_move; k++){
+                    adjacent_x = game_state->players[i].x_pos + Positions[k][0];
+                    adjacent_y = game_state->players[i].y_pos + Positions[k][1];
+                    can_move = valid_xy(adjacent_x, adjacent_y, game_state_ADT);
+                }
+                game_state->players[i].is_blocked |= !can_move;
             }
-            game_state->players[i].is_blocked |= !can_move;
         }
     }
 }
