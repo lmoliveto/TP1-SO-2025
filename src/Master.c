@@ -3,6 +3,7 @@
 #include "spawn_children.h"
 #include "args.h"
 #include "moves.h"
+#include "fds.h"
 
 
 //<----------------------------------------------------------------------- EXTERN VARS ----------------------------------------------------------------------->
@@ -18,8 +19,6 @@ static void initialize_players(ShmADT game_state_ADT);
 static void initialize_sems(Settings * settings, Semaphores * sem);
 static void welcome(Settings * settings);
 static void check_blocked_players(Settings * settings);
-static int get_max_readfd(int total, int pipes[MAX_PLAYERS][2]);
-static void verify_fds(int max_fd, fd_set * set, int pipes[MAX_PLAYERS][2]);
 static void intialize_board(ShmADT game_state_ADT);
 static void goodbye(pid_t view_pid, Settings * settings);
 static void break_the_tie_by_min(Board * game_state, char winners[], int winners_count, int * first_winner);
@@ -101,7 +100,7 @@ int main(int argc, char * argv[]) {
     while (!game_state->finished) {
         first_p = (random() % (game_state->player_count));
 
-        verify_fds(game_state->player_count, &readfds, pipes);
+        verify_fds(game_state->player_count, &readfds, pipes, settings.timeout);
        
         receive_move(first_p, player_requests, pipes, readfds, settings.game_state_ADT);
 
@@ -199,59 +198,6 @@ static void check_blocked_players(Settings * settings){
         game_state->finished = 1;
     }
 }
-
-static int get_max_readfd(int player_count, int pipes[MAX_PLAYERS][2]){
-
-    if(pipes == NULL){
-        errno = EINVAL;
-        perror("get_max_readfd -> pipes");
-        exit(EXIT_FAILURE);
-    }
-
-    if(player_count == 0){
-        errno = EINVAL;
-        perror("get_max_readfd -> total");
-        exit(EXIT_FAILURE);
-    }
-
-    int max = pipes[0][R_END];
-
-    for(int i = 1; i < player_count; i++){
-        if(pipes[i][R_END] > max){
-            max = pipes[i][R_END];
-        }
-    }
-
-    return max;
-}
-
-static void verify_fds(int player_count, fd_set * set, int pipes[MAX_PLAYERS][2]) {
-    FD_ZERO(set);
-
-    for(int i = 0; i < player_count; i++){
-        FD_SET(pipes[i][R_END], set);
-    }
-
-    int max_fd = get_max_readfd(player_count, pipes);
-
-    static struct timeval timeout;
-    timeout.tv_sec = 5; //todo esta bien este tiempo?
-    timeout.tv_usec = 0; //todo esta bien este tiempo?
-
-    int total_fds_found = select(max_fd + 1, set, NULL, NULL, &timeout);
-
-    if(-1 == total_fds_found){
-        errno = EIO;
-        perror("select");
-        exit(EXIT_FAILURE);
-    }
-
-    if(0 == total_fds_found){
-        errno = ETIMEDOUT;
-        perror("timeout\n");
-        exit(EXIT_FAILURE);
-    }
-};
 
 static void intialize_board(ShmADT game_state_ADT){
     Board * game_state = (Board *) get_shm_pointer(game_state_ADT);
