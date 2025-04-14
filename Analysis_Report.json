@@ -1,0 +1,97 @@
+{
+  "version": 2,
+  "warnings": [
+    {
+      "code": "V609",
+      "cwe": 369,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 1,
+      "message": "Mod by zero. Denominator 'game_state->player_count' == 0.",
+      "positions": [
+        {
+          "endLine": 105,
+          "file": "/root/src/Master.c",
+          "line": 105,
+          "navigation": {
+            "columns": 0,
+            "currentLine": -1386358239,
+            "nextLine": 0,
+            "previousLine": 1034584628
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": "CERT-INT33-C"
+    },
+    {
+      "code": "V621",
+      "cwe": 835,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 1,
+      "message": "Consider inspecting the 'for' operator. It's possible that the loop will be executed incorrectly or won't be executed at all.",
+      "positions": [
+        {
+          "endLine": 86,
+          "file": "/root/src/Master.c",
+          "line": 86,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 1789625913,
+            "nextLine": 1941193045,
+            "previousLine": 0
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": "CERT-MSC21-C"
+    },
+    {
+      "code": "V621",
+      "cwe": 835,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 1,
+      "message": "Consider inspecting the 'for' operator. It's possible that the loop will be executed incorrectly or won't be executed at all.",
+      "positions": [
+        {
+          "endLine": 139,
+          "file": "/root/src/Master.c",
+          "line": 139,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 1789625913,
+            "nextLine": 297581757,
+            "previousLine": 0
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": "CERT-MSC21-C"
+    },
+    {
+      "code": "V547",
+      "cwe": 570,
+      "falseAlarm": false,
+      "favorite": false,
+      "level": 2,
+      "message": "Expression 'game_state->finished' is always false.",
+      "positions": [
+        {
+          "endLine": 133,
+          "file": "/root/src/Master.c",
+          "line": 133,
+          "navigation": {
+            "columns": 0,
+            "currentLine": 1491763761,
+            "nextLine": -1381909291,
+            "previousLine": 1963771162
+          }
+        }
+      ],
+      "projects": [],
+      "sastId": ""
+    }
+  ]
+}
