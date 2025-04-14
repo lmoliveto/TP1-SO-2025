@@ -167,7 +167,7 @@ static void initialize_players(ShmADT game_state_ADT){
         game_state->players[i].is_blocked = 0;
     }
 
-    if (game_state->player_count == 0) {
+    if (game_state->player_count <= 0) {
         errno = EINVAL;
         perror("No players specified");
         exit(EXIT_FAILURE);
