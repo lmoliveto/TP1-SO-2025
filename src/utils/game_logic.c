@@ -88,7 +88,7 @@ void goodbye(pid_t view_pid, Settings * settings){
     }
 
     char winners[MAX_PLAYERS] = { 0 };
-    int winners_count = 0, first_winner;
+    int winners_count = 0, first_winner = -1;
     unsigned int max_score = 0;
 
     for(int i = 0; i < game_state->player_count; i++){
@@ -134,7 +134,7 @@ void goodbye(pid_t view_pid, Settings * settings){
 }
 
 static void break_the_tie_by_min(Board * game_state, char winners[], int winners_count, int * first_winner){
-    if(winners_count > 1){
+    if(*first_winner > -1 && winners_count > 1){
         unsigned int min_valid_move_count = game_state->players[*first_winner].valid_move_count;
 
         for(int i = *first_winner + 1; i < game_state->player_count; i++){

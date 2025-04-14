@@ -79,6 +79,7 @@ int main(int argc, char *argv[]) {
 	for (int i = 0; i < game_state->player_count; i++) {
 		char *args[] = {game_state->players[i].name, width, height, NULL};
 		spawn_child_pipes(pipes[i], &game_state->players[i].pid, args);
+		game_state->players[i].is_blocked = game_state->players[i].pid == -1;
 	}
 
 	char *view_args[] = {settings.view, width, height, NULL};
@@ -92,7 +93,6 @@ int main(int argc, char *argv[]) {
 	signed char player_requests[MAX_PLAYERS][1] = {0};
 	int first_p;
 	time_t exit_timer = time(NULL);
-	int change_found = 0;
 
 	while (!game_state->finished) {
 		first_p = (random() % (game_state->player_count));
@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
 		sem_wait(&game_sync->sync_state);
 		sem_post(&game_sync->players_done);
 
-		execute_move(first_p, &change_found, &exit_timer, player_requests, settings.game_state_ADT);
+		execute_move(first_p, &exit_timer, player_requests, settings.game_state_ADT);
 
 		// we can post here as later on we only speak with the view
 		sem_post(&game_sync->sync_state);
@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
 			game_state->finished = 1;
 		}
 
-		if (settings.view[0] != '\0' && change_found) {
+		if (settings.view[0] != '\0') {
 			sem_post(&game_sync->has_changes);
 			sem_wait(&game_sync->print_done);
 		}

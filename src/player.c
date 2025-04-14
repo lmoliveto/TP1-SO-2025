@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	while (!game_board->finished) {
+	while (!game_board->finished && !game_board->players[player_id].is_blocked) {
 		// Wait for the master to signal that it's time to read
 		sem_wait(&game_sync->players_done);
 		sem_post(&game_sync->players_done);
