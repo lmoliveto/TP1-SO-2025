@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 // Compile with -DSTRATEGY_* to select which strategy to use, if none is selected then the player chooses a random direction
 
 #include "constants.h"
