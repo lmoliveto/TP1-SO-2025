@@ -114,9 +114,10 @@ int main(int argc, char *argv[]) {
 			game_state->finished = 1;
 		}
 
-		if (settings.view[0] != '\0' && change_found) {
+		if (view_pid != 0 && change_found) {
 			sem_post(&game_sync->has_changes);
 			sem_wait(&game_sync->print_done);
+			change_found = 0;
 		}
 
 		usleep(settings.delay * 1000);

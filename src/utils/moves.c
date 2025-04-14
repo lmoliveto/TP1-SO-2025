@@ -9,7 +9,16 @@ void receive_move(int first_p, signed char player_requests[][1], int pipes[MAX_P
     Board * game_state = (Board *) get_shm_pointer(game_state_ADT);
 
     for(int i = first_p, j = 0; j < game_state->player_count && !game_state->finished; j++, i = (i + 1) % game_state->player_count) {
-        if( FD_ISSET(pipes[i][R_END], &readfds) && !game_state->players[i].is_blocked ) {
+        if (!game_state->players[i].is_blocked) {
+            int status;
+            pid_t waited_pid = waitpid(game_state->players[i].pid, &status, game_state->players[i].pid);
+            errno = 0;
+            if (WIFEXITED(status) || waited_pid == -1) {
+                game_state->players[i].is_blocked = 1;
+            }
+        }
+
+        if( !game_state->players[i].is_blocked && FD_ISSET(pipes[i][R_END], &readfds) ) {
 
             int total_read = read(pipes[i][R_END], player_requests[i], sizeof(player_requests[i]));
             if (total_read == -1) {
@@ -29,6 +38,7 @@ void execute_move(int first_p, int * change_found, time_t * exit_timer, signed c
     int new_x, new_y, adjacent_x, adjacent_y, can_move;
 
     for(int i = first_p, j = 0; j < game_state->player_count && !game_state->finished; j++, i = (i + 1) % game_state->player_count) {
+        if (game_state->players[i].is_blocked) continue;
 
         if (is_valid_move(player_requests[i][0], i, &new_x, &new_y, game_state_ADT)) {
             // position saved in new_x, new_y
@@ -67,7 +77,6 @@ static int is_valid_move(signed char request, int player_id, int * x, int * y, S
         new_x = game_state->players[player_id].x_pos + Positions[(int)request][0];
         new_y = game_state->players[player_id].y_pos + Positions[(int)request][1];
     }
-
     
     if (valid_move && !valid_xy(new_x, new_y, game_state_ADT)) {
         game_state->players[player_id].invalid_move_count++;
