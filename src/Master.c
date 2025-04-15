@@ -5,13 +5,11 @@
 #include "moves.h"
 #include "spawn_children.h"
 
-
 //<----------------------------------------------------------------------- EXTERN AND STATIC VARS ----------------------------------------------------------------------->
 
 extern int opterr;
 extern int optind;
 static char player_names[MAX_PLAYERS + 1][STR_ARG_MAX_SIZE] = {0};
-
 
 //<----------------------------------------------------------------------- PROTOTIPES ----------------------------------------------------------------------->
 
@@ -19,7 +17,6 @@ static void *get_player_name_addr(int i);
 static void initialize_sems(ShmADT game_sync_ADT);
 static void destroy_sems(ShmADT game_sync_ADT);
 static void check_arguments(ShmADT game_state_ADT);
-
 
 //<----------------------------------------------------------------------- MAIN ----------------------------------------------------------------------->
 
@@ -111,7 +108,7 @@ int main(int argc, char *argv[]) {
 		sem_wait(&game_sync->players_done);
 		sem_wait(&game_sync->sync_state);
 		sem_post(&game_sync->players_done);
-		
+
 		execute_move(first_p, &exit_timer, player_requests, settings.game_state_ADT);
 
 		if (time(NULL) - exit_timer >= settings.timeout) {
@@ -127,7 +124,7 @@ int main(int argc, char *argv[]) {
 			sem_post(&game_sync->has_changes);
 			sem_wait(&game_sync->print_done);
 		}
-		
+
 		usleep(settings.delay * 1000);
 	}
 
@@ -179,11 +176,29 @@ static void destroy_sems(ShmADT game_sync_ADT) {
 }
 
 static void check_arguments(ShmADT game_state_ADT) {
-	Board * game_state = (Board *)get_shm_pointer(game_state_ADT);
+	Board *game_state = (Board *)get_shm_pointer(game_state_ADT);
 
-	if(game_state->width < MIN_WIDTH || game_state->height < MIN_HEIGHT || game_state->player_count < MIN_PLAYERS || game_state->player_count > MAX_PLAYERS){
+	if (game_state->width < MIN_WIDTH) {
 		errno = EINVAL;
-		perror("Invalid argument");
+		perror("Invalid width");
+		exit(EXIT_FAILURE);
+	}
+
+	if (game_state->height < MIN_HEIGHT) {
+		errno = EINVAL;
+		perror("Invalid height");
+		exit(EXIT_FAILURE);
+	}
+
+	if (game_state->player_count > MAX_PLAYERS) {
+		errno = EINVAL;
+		perror("Too many players");
+		exit(EXIT_FAILURE);
+	}
+
+	if (game_state->player_count < MIN_PLAYERS) {
+		errno = EINVAL;
+		perror("Too few players");
 		exit(EXIT_FAILURE);
 	}
 }
