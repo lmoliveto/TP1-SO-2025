@@ -39,7 +39,6 @@ void spawn_child_pipes(int pipes[2], pid_t * child_pid, char * args[]) {
 
         execve(args[0], args, NULL); // <- sets errno on failure
         *child_pid = -1;
-        perror("execve");
         exit(EXIT_FAILURE);
     }
 

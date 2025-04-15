@@ -2,7 +2,7 @@
 
 static int get_max_readfd(int player_count, int pipes[MAX_PLAYERS][2]);
 
-void verify_fds(int player_count, fd_set * set, int pipes[MAX_PLAYERS][2], unsigned int timeout_seconds){
+int invalid_fds(int player_count, fd_set * set, int pipes[MAX_PLAYERS][2], unsigned int timeout_seconds){
     FD_ZERO(set);
 
     for(int i = 0; i < player_count; i++){
@@ -23,11 +23,7 @@ void verify_fds(int player_count, fd_set * set, int pipes[MAX_PLAYERS][2], unsig
         exit(EXIT_FAILURE);
     }
 
-    if(0 == total_fds_found){
-        errno = ETIMEDOUT;
-        perror("timeout\n");
-        exit(EXIT_FAILURE);
-    }
+    return 0 == total_fds_found;
 }
 
 static int get_max_readfd(int player_count, int pipes[MAX_PLAYERS][2]){

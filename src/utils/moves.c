@@ -9,18 +9,28 @@ void receive_move(int first_p, signed char player_requests[][1], int pipes[MAX_P
     Board * game_state = (Board *) get_shm_pointer(game_state_ADT);
 
     for(int i = first_p, j = 0; j < game_state->player_count && !game_state->finished; j++, i = (i + 1) % game_state->player_count) {
-        if( game_state->players[i].pid != -1 && FD_ISSET(pipes[i][R_END], &readfds) && !game_state->players[i].is_blocked ) {
+        if (game_state->players[i].pid != -1 ) {
+            if( FD_ISSET(pipes[i][R_END], &readfds) && !game_state->players[i].is_blocked ) {
+                int total_read = read(pipes[i][R_END], player_requests[i], sizeof(player_requests[i]));
+                
+                if (total_read == 0) {
+                    player_requests[i][0] = NONEXISTANT_MOVE;
+                }
 
-            int total_read = read(pipes[i][R_END], player_requests[i], sizeof(player_requests[i]));
-            if (total_read == -1) {
-                errno = EIO;
-                perror("read");
-                exit(EXIT_FAILURE);
+                if (total_read == -1) {
+                    errno = EIO;
+                    perror("read");
+                    exit(EXIT_FAILURE);
+                }
+    
+            } else if (game_state->players[i].is_blocked) {
+                player_requests[i][0] = INVALID_MOVE;
+            } else {
+                player_requests[i][0] = NONEXISTANT_MOVE; 
             }
-
         } else {
-            player_requests[i][0] = -1; 
-        }
+            player_requests[i][0] = NONEXISTANT_MOVE;
+        } 
     }
 }
 
@@ -29,14 +39,14 @@ void execute_move(int first_p, time_t * exit_timer, signed char player_requests[
     int new_x, new_y, adjacent_x, adjacent_y, can_move;
 
     for(int i = first_p, j = 0; j < game_state->player_count && !game_state->finished; j++, i = (i + 1) % game_state->player_count) {
-
         if(game_state->players[i].pid != -1) {
             if (is_valid_move(player_requests[i][0], i, &new_x, &new_y, game_state_ADT)) {
                 // position saved in new_x, new_y
                 move_to(new_x, new_y, i, game_state_ADT);
                 *exit_timer = time(NULL);
-            } else { //given an invalid move, check whether the player has any valid moves left
+            } else if (player_requests[i][0] != NONEXISTANT_MOVE) { //given an invalid move, check whether the player has any valid moves left
                 can_move = 0;
+                game_state->players[i].invalid_move_count++;
                 for(int k = 0 ; k < DIR_NUM && !can_move; k++){
                     adjacent_x = game_state->players[i].x_pos + Positions[k][0];
                     adjacent_y = game_state->players[i].y_pos + Positions[k][1];
@@ -62,7 +72,6 @@ static int is_valid_move(signed char request, int player_id, int * x, int * y, S
     int valid_move = 1, new_x, new_y;
     
     if (request < 0 || request > 7) {
-        game_state->players[player_id].invalid_move_count++;
         valid_move = 0;
     } else {
         new_x = game_state->players[player_id].x_pos + Positions[(int)request][0];
@@ -71,7 +80,6 @@ static int is_valid_move(signed char request, int player_id, int * x, int * y, S
 
     
     if (valid_move && !valid_xy(new_x, new_y, game_state_ADT)) {
-        game_state->players[player_id].invalid_move_count++;
         valid_move = 0;
     } else {
         *x= new_x;

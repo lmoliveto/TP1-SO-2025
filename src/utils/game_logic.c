@@ -21,6 +21,12 @@ void initialize_players(ShmADT game_state_ADT, char player_names[MAX_PLAYERS + 1
         game_state->players[i].invalid_move_count = 0;
         game_state->players[i].is_blocked = 0;
     }
+
+    if(game_state->player_count < MIN_PLAYERS){
+        errno = EINVAL;
+        perror("Too few players");
+        exit(EXIT_FAILURE);
+    }
 }
 
 void intialize_board(ShmADT game_state_ADT){
@@ -76,19 +82,21 @@ void goodbye(pid_t view_pid, Settings * settings){
     int status;
     pid_t waited_pid;
     
-    if (view_pid != -1) {
-        waited_pid = waitpid(view_pid, &status, 0);
-    
-        if(waited_pid == -1){
-            perror("waitpid failed1");
-            exit(EXIT_FAILURE);
+    if (settings->view[0] != '\0') {
+        if (view_pid != -1){
+            waited_pid = waitpid(view_pid, &status, 0);
+        
+            if(waited_pid == -1){
+                perror("waitpid failed1");
+                exit(EXIT_FAILURE);
+            }
         }
-    }
-
-    if(WIFEXITED(status)){
-        printf("\nView exited (%d)\n", WEXITSTATUS(status));
-    } else {
-        printf("\nView %d did not terminate normally\n", waited_pid);
+    
+        if(WIFEXITED(status)){
+            printf("\nView exited (%d)\n", WEXITSTATUS(status));
+        } else {
+            printf("\nView %d did not terminate normally\n", waited_pid);
+        }    
     }
 
     char winners[MAX_PLAYERS] = { 0 };

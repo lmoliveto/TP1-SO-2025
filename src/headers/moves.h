@@ -3,6 +3,9 @@
 
 #include "constants.h"
 
+#define INVALID_MOVE (-1)
+#define NONEXISTANT_MOVE (-2)
+
 void receive_move(int first_p, signed char player_requests[][1], int pipes[MAX_PLAYERS][2], fd_set readfds, ShmADT game_state_ADT);
 
 void execute_move(int first_p, time_t * exit_timer, signed char player_requests[][1], ShmADT game_state_ADT);
